@@ -1,31 +1,9 @@
-import discord  # https://discordpy.readthedocs.io/en/latest/api.html
-# from images import *
-from cards import *
+from pool_bot import *
+from table_bot import *
 
+pool = Pool()
 token = 'Njg0MTQyODIwMTIyMjk2MzQ5.Xl13Ww.52HjCT9BrAxD75rf-TPHKe6dD2s'
 BOT_PREFIX = '+'
-p = Pool()
-
-
-def cardToEmbed(card, evo=False):
-    card = p[card]
-    embed = discord.Embed(title=card.name + " [Evolved]" * evo,
-                          description="{} {} {}".format(card.rarity, card.craft, card.type))
-    if card.type == "Follower":
-        embed.add_field(name="Base effect: ", value=card.effect)
-        embed.add_field(name="Base stats: ", value="{}/{}".format(card.attack, card.defense))
-        embed.add_field(name="\u200B", value="\u200B", inline=False)  # Separator
-        embed.add_field(name="Evo effect: ", value=card.evoEffect)
-        embed.add_field(name="Evo stats: ", value="{}/{}".format(card.evoAttack, card.evoDefense))
-    else:
-        embed.add_field(name="Effect:", value=card.effect)
-    if evo:
-        embed.set_image(url=card.evoPic)
-        embed.set_footer(text=card.evoFlair)
-    else:
-        embed.set_image(url=card.pic)
-        embed.set_footer(text=card.flair)
-    return embed
 
 
 class MyClient(discord.Client):
@@ -39,24 +17,32 @@ class MyClient(discord.Client):
         if message.author.id == self.user.id:
             if "Follower" in message.embeds[0].description \
                     and "[Evolved]" not in message.embeds[0].title:
-                await message.add_reaction('\N{THUMBS UP SIGN}')
-            return
+                await message.add_reaction("🇪")  # regional indicator E
+            return  # to avoid unaccounted for self-replies
 
         if message.content.startswith(BOT_PREFIX):
             messageString = message.content.replace(BOT_PREFIX, '')
-            # Random card
-            if messageString.startswith("random"):
-                randomCard = cardToEmbed(p.getRandomCard().name)
-                await message.channel.send(embed=randomCard)
-            # Card search
-            matches = p.search(messageString, maxMatches=25)
-            if matches:
-                if len(matches) == 1:
-                    await message.channel.send(embed=cardToEmbed(matches[0]))
-                else:
-                    await message.channel.send("I found these cards: {}".format(matches))
+            dm = ""  # a possible direct message to be sent
+
+            # Draft commands
+            if messageString.startswith("join"):
+                out, dm = out_join(message.author)
+            elif messageString.startswith("players"):
+                out = out_player_list()
+            elif messageString.startswith("leave"):
+                out, dm = out_leave(message.author)
+
+            # Card display commands
+            elif messageString.startswith("random"):
+                out = out_random_card()
+            elif messageString[0] == messageString[-1] == "\"":
+                out = out_exact_search(messageString)
             else:
-                await message.channel.send("Too many card matches or invalid card name.")
+                out = out_search(messageString)
+
+            await message.channel.send(embed=out)
+            if dm != "":
+                await message.author.send(dm)
 
     async def on_reaction_add(self, reaction, user):
         if reaction.message.author.id == self.user.id \
@@ -64,7 +50,7 @@ class MyClient(discord.Client):
                 and reaction.message.embeds:
             if "Follower" in reaction.message.embeds[0].description:
                 cardName = reaction.message.embeds[0].title
-                await reaction.message.channel.send(embed=cardToEmbed(cardName, evo=True))
+                await reaction.message.channel.send(embed=card_to_embed(cardName, evo=True))
 
 
 client = MyClient()
