@@ -4,7 +4,7 @@ from Pool import *
 pool = Pool()
 
 
-def card_to_embed(card, evo=False):
+def send_card(card, evo=False):
     card = pool[card]
     embed = discord.Embed(title=card.name + " [Evolved]" * evo,
                           description="{} {} {}".format(card.rarity, card.craft, card.type))
@@ -25,25 +25,71 @@ def card_to_embed(card, evo=False):
     return embed
 
 
-def out_exact_search(card):
+def send_exact_search(card):
     card = card[1].upper() + card[2:-1].lower()
     if card not in pool:
         return discord.Embed(title="That card doesn't exist.")
-    return card_to_embed(card)
+    return send_card(card)
 
 
-def out_search(card):
-    matches = pool.search(card, maxMatches=25)
+def send_search(card, maxMatches):
+    matches = pool.search(card, maxMatches)
     if matches:
         if len(matches) == 1:
-            return card_to_embed(matches[0])
+            return send_card(matches[0])
         else:
             result = discord.Embed(title="Possible matches:")
             for i in range(len(matches)):
-                result.add_field(name=str(i + 1), value=matches[i], inline=True)
+                result.add_field(name="{}. ".format(i), value=matches[i])
             return result
     return discord.Embed(title="Too many card matches or invalid card name.")
 
 
-def out_random_card():
-    return card_to_embed(pool.get_random_card())
+def send_random_card():
+    return send_card(pool.get_random_card())
+
+
+def react_to_card_embed(embeds):
+    if embeds[0].description != discord.Embed.Empty and embeds[0].title != discord.Embed.Empty:
+        return "Follower" in embeds[0].description and "[Evolved]" not in embeds[0].title
+
+
+def reactions_to_card_embed():
+    return ["🇪"]  # regional indicator E
+
+
+def react_to_search_list(embeds):
+    return "matches" in embeds[0].title
+
+
+numEmote = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣",
+            5: "5️⃣", 6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣",
+            10: "🇦", 11: "🇧", 12: "🇨", 13: "🇩", 14: "🇪"}
+emoteNum = {i: j for j, i in numEmote.items()}
+
+
+def reactions_to_search_list(embeds):
+    return [numEmote[i] for i in range(len(embeds[0].fields))]
+
+
+def requested_send_card_evo(reaction):
+    if reaction.message.embeds and reaction.message.embeds != discord.Embed.Empty \
+            and str(reaction) == "🇪":
+        return "Follower" in reaction.message.embeds[0].description
+
+
+def card_name_from_embeds(embeds):
+    return embeds[0].title
+
+
+def requested_send_card_from_list(reaction):
+    if reaction.message.embeds and reaction.message.embeds != discord.Embed.Empty \
+            and str(reaction) in list(emoteNum)[:len(reaction.message.embeds[0].fields) - len(emoteNum)]:
+        """str(reaction) in emoteNum doesn't take into account the cases where a list of n cards is reacted to with a
+        number higher than n, so one needs to check if the reaction lives in the dictionary truncated to the first n
+        entries."""
+        return "matches" in reaction.message.embeds[0].title
+
+
+def send_card_from_list(reaction):
+    return send_card(reaction.message.embeds[0].fields[emoteNum[str(reaction)]].value)
