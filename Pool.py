@@ -34,12 +34,26 @@ class Pool:
     def get_random_card(self):
         return self.cards[random.choice(list(self.cards.keys()))].name
 
-    def search(self, card, maxMatches):
-        card = card.lower()
+    def search_by_name(self, text, maxMatches):
+        text = text.lower()
         result = []
         for i in self.cards:
-            if card in i.lower():
+            if text in i.lower():
                 result.append(i)
             if len(result) > maxMatches:
                 return []
         return result
+
+    def search_by_attributes(self, attributes, maxMatches):
+        result = []
+        for i in self.cards:
+            if False not in [j in self.cards[i].searchable for j in attributes]:
+                result.append(i)
+            if len(result) > maxMatches:
+                return []
+        return result
+
+
+def moduleTest():
+    p = Pool()
+    print(p.search_by_attributes("2/2 blood gold bat", 99))

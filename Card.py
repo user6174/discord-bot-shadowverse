@@ -2,7 +2,8 @@ def clean_string(string):  # Adjusts the formatting of effects and flairs.
     return string.replace("<br>", '') \
         .replace('.', ".\n") \
         .replace(".\n)", ".)") \
-        .replace("- ", "-\n")
+        .replace("- ", "-\n") \
+        .replace(".\n.\n.\n", "...")
 
 
 class Card:
@@ -28,6 +29,7 @@ class Card:
             '\u200B' * (card["evoData"]["description"] == '')
         self.evoAttack = card['evoData']['attack']
         self.evoDefense = card['evoData']['defense']
+        self.searchable = card['searchableText']
 
     def __str__(self):  # Just for debugging purposes, could print richer information.
         return "\n{}" \
