@@ -44,7 +44,7 @@ class Pool:
                 return []
         return result
 
-    def search_by_attributes(self, attributes, maxMatches):
+    def search_by_attributes(self, attributes: list, maxMatches):
         result = []
         for i in self.cards:
             if False not in [j in self.cards[i].searchable for j in attributes]:
@@ -56,4 +56,9 @@ class Pool:
 
 def moduleTest():
     p = Pool()
-    print(p.search_by_attributes("2/2 blood gold bat", 99))
+    print(p.get_random_card())
+    print(p.search_by_name("roly", 99))
+    print(p.search_by_name("tia", 99))
+    print(p.search_by_name("a", 10))
+    print(p.search_by_attributes(["2/2", "blood", "gold", "bat"], maxMatches=99))
+    print(p.search_by_attributes(["7/4"]))
