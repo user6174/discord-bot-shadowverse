@@ -13,13 +13,13 @@ root = logging.getLogger()
 root.setLevel(logging.DEBUG)
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.INFO)
-style = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
+style = logging.Formatter('[%(asctime)s] %(levelname)s - %(funcName)s: %(message)s')
 handler.setFormatter(style)
 root.addHandler(handler)
 
 with open("token.txt", 'r') as txt:
     token = txt.readline()
-description = ""
+description = "~"
 bot = commands.Bot(command_prefix='+', description=description)
 REACTIONS_COMMANDS_TIMEOUT = 60.0
 
@@ -35,10 +35,10 @@ async def on_ready():
 
 
 async def send_card(ctx, card, evo=False):
-    logging.info("Trying to send card [{}] requested by {}...".format(card, ctx.message.author))
+    logging.info("Trying to send card [{}] {} requested by {}...".format(card, "(evolved)" * evo, ctx.message.author))
     card = pool[card]
     embed = discord.Embed(title=card.name + " [Evolved]" * evo,
-                          description="{} {} {}".format(card.rarity, card.craft, card.type))
+                          description="{} {} {} from {}".format(card.rarity, card.craft, card.type, card.expac))
     if card.type == "Follower":
         embed.add_field(name="Stats: ", value="{}/{} → {}/{}\n".format(card.attack, card.defense,
                                                                        card.evoAttack, card.evoDefense))
@@ -93,20 +93,19 @@ async def find(ctx, *searchTerms, maxMatches=15):
     emoteNum = {i: j for j, i in numEmote.items()}
 
     searchTerms = list(searchTerms)
-    if type(searchTerms[0]) == list:
-        searchTerms = searchTerms[0]
     logging.info("Trying a card search with terms {} requested by {}...".format(searchTerms, ctx.message.author))
-    # Very ugly, but passing a tuple in on_command_error was resulting in the input being treated as a tuple
-    # of 1 element, a tuple.
-    # TODO: nicer way to handle this?
     if len(searchTerms) == 1:
+        logging.info("Only one parameter passed, trying a search by name...")
         matches = pool.search_by_name(searchTerms[0], maxMatches=maxMatches)
         if not matches:
-            matches = pool.search_by_attributes(searchTerms, maxMatches=maxMatches)
+            logging.info("...search by name failed, trying a search by single attribute...")
+            matches = pool.search_by_attributes(searchTerms[0], maxMatches=maxMatches)
     else:
-        matches = pool.search_by_attributes(searchTerms, maxMatches=maxMatches)
+        logging.info("Multiple parameters passed, trying a search by multiple attributes...")
+        matches = pool.search_by_attributes(*searchTerms, maxMatches=maxMatches)
     if matches:
         if len(matches) == 1:
+            logging.info("...exactly one card found. Sending that.")
             await send_card(ctx, matches[0])
         else:
             # [1] Send list of n result, react to it with n emotes and send an item among those, if requested.
@@ -137,8 +136,8 @@ async def on_command_error(ctx, error):
     If the bot detects a prefix+string message, where string isn't a command, it uses the string to fire a card search.
     """
     if isinstance(error, commands.CommandNotFound):
-        searchTerms = ctx.message.content.replace(bot.command_prefix, '').split()
-        await find(ctx, searchTerms)  # see TODO in find
+        searchTerms = tuple(ctx.message.content.replace(bot.command_prefix, '').split())
+        await find(ctx, *searchTerms)
 
 
 ########################################################################################################################

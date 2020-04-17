@@ -11,3 +11,7 @@ class Deck:
 
     def __contains__(self, item):
         return item in self.cards
+
+
+def moduleTest():
+    pool = Pool(expacs=["Basic", "Standard", "Darkness Evolved"], token=False)

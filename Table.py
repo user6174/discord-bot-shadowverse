@@ -1,8 +1,4 @@
 from Player import *
-"""
-per ora i giocatori sono solo una stringa con il loro ID ma eventualmente dovranno essere una classe quando
-bisognerà aggiungere metodi come user.printdeck (e pure deck sarà una classe!)
-"""
 
 
 class Table:
