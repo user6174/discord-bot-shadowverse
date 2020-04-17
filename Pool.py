@@ -4,14 +4,12 @@ import json
 
 
 class Pool:
-
     def __init__(self):
         self.cards = {}
         with open("en.json", 'r') as f:
             data = json.load(f)
             for i in data:
                 self.cards[data[i]["name"]] = Card(data[i])
-
     """
     data is a list of dictionaries (cards), whose key is the card name. Example:
     >>> data["Robogoblin"].keys()

@@ -1,21 +1,32 @@
+import asyncio
 import discord  # https://discordpy.readthedocs.io/en/latest/api.html
 from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
+
 from Pool import *
+pool = Pool()
 from Table import *
+table = Table()
+
+import logging
+import sys
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
+style = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
+handler.setFormatter(style)
+root.addHandler(handler)
 
 with open("token.txt", 'r') as txt:
     token = txt.readline()
 description = ""
 bot = commands.Bot(command_prefix='+', description=description)
-pool = Pool()
-table = Table()
 REACTIONS_COMMANDS_TIMEOUT = 60.0
-# TODO: currently the timeout elapsing results in a warning, make that a log event in the python console
 
 
 @bot.event
 async def on_ready():
-    print("we in boi")
+    logging.info("{} is now active.".format(bot.user))
 
 
 ########################################################################################################################
@@ -24,6 +35,7 @@ async def on_ready():
 
 
 async def send_card(ctx, card, evo=False):
+    logging.info("Trying to send card [{}] requested by {}...".format(card, ctx.message.author))
     card = pool[card]
     embed = discord.Embed(title=card.name + " [Evolved]" * evo,
                           description="{} {} {}".format(card.rarity, card.craft, card.type))
@@ -41,19 +53,24 @@ async def send_card(ctx, card, evo=False):
         embed.set_image(url=card.pic)
         embed.set_footer(text=card.flair)
     msg = await ctx.send(embed=embed)
+    logging.info("...successfully sent, producing message {}.".format(msg.id))
     if card.type == "Follower" and not evo:
         await msg.add_reaction("🇪")  # regional indicator E
-        await bot.wait_for("reaction_add",
-                           check=lambda r, u: str(r.emoji) == "🇪" and u != msg.author and r.message.id == msg.id,
-                           timeout=REACTIONS_COMMANDS_TIMEOUT)
-        await msg.delete()  # TODO (possibly): replace this by a message edit+ a toggle to display the normal image back
-        await send_card(ctx, card.name, evo=True)
+        try:
+            await bot.wait_for("reaction_add",
+                               check=lambda r, u: str(r.emoji) == "🇪" and u != msg.author and r.message.id == msg.id,
+                               timeout=REACTIONS_COMMANDS_TIMEOUT)
+            await msg.delete()  # TODO: replace this by a message edit+ a toggle to display the normal image back
+            await send_card(ctx, card.name, evo=True)
+        except asyncio.TimeoutError:
+            logging.info("Reactable status expired on message {}.".format(msg.id))
 
 
 @bot.command(aliases=['r'], description="""
     Displays a random card. Token cards are included by default.
     """)  # TODO: flag for excluding tokens, flag for filtering by expansion (or really, by any card attribute).
 async def random(ctx):
+    logging.info("Random card requested by {}.".format(ctx.message.author))
     randomCard = pool.get_random_card()
     await send_card(ctx, randomCard)
 
@@ -78,6 +95,7 @@ async def find(ctx, *searchTerms, maxMatches=15):
     searchTerms = list(searchTerms)
     if type(searchTerms[0]) == list:
         searchTerms = searchTerms[0]
+    logging.info("Trying a card search with terms {} requested by {}...".format(searchTerms, ctx.message.author))
     # Very ugly, but passing a tuple in on_command_error was resulting in the input being treated as a tuple
     # of 1 element, a tuple.
     # TODO: nicer way to handle this?
@@ -96,14 +114,18 @@ async def find(ctx, *searchTerms, maxMatches=15):
             for i in range(len(matches)):
                 embed.add_field(name=str(i), value=matches[i])
             msg = await ctx.send(embed=embed)
+            logging.info("...successfully found multiple matches, producing message {}.".format(msg.id))
             for i in range(len(matches)):
                 await msg.add_reaction(numEmote[i])
-            reaction, user = await bot.wait_for("reaction_add",
-                                                check=lambda r, u: str(r.emoji) in list(emoteNum)[:len(matches)] \
-                                                                   and u != msg.author and r.message.id == msg.id,
-                                                timeout=REACTIONS_COMMANDS_TIMEOUT)
-            card = matches[emoteNum[reaction.emoji]]
-            await send_card(ctx, card)
+            try:
+                reaction, user = await bot.wait_for("reaction_add",
+                                                    check=lambda r, u: str(r.emoji) in list(emoteNum)[:len(matches)] \
+                                                                       and u != msg.author and r.message.id == msg.id,
+                                                    timeout=REACTIONS_COMMANDS_TIMEOUT)
+                card = matches[emoteNum[reaction.emoji]]
+                await send_card(ctx, card)
+            except asyncio.TimeoutError:
+                logging.info("Reactable status expired on message {}.".format(msg.id))
             # End of [1].
     else:
         await ctx.send("Too many matches, or no match.")
@@ -116,9 +138,7 @@ async def on_command_error(ctx, error):
     """
     if isinstance(error, commands.CommandNotFound):
         searchTerms = ctx.message.content.replace(bot.command_prefix, '').split()
-        await find(ctx, searchTerms)
-    if isinstance(error, TimeoutError):
-        print("Toggles on message {} timed out.".format(ctx.message.id))
+        await find(ctx, searchTerms)  # see TODO in find
 
 
 ########################################################################################################################
