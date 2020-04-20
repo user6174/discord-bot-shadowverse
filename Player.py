@@ -17,7 +17,7 @@ class Player:
         :return:
         """
         try:
-            assert card in pool1
+            assert card in pool1 and pool1, pool2 in [self.mainDeck, self.sideBoard, self.picks]
             pool1.remove_from_deck(card)
             pool2.add_to_deck(card)
         except AssertionError:
