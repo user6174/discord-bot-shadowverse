@@ -3,14 +3,14 @@ import discord  # https://discordpy.readthedocs.io/en/latest/api.html
 from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
 
 from Pool import *
+
 pool = Pool()
-from Table import *
-table = Table()
 
 import logging
 import sys
+
 root = logging.getLogger()
-root.setLevel(logging.DEBUG)
+root.setLevel(logging.INFO)
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.INFO)
 style = logging.Formatter('[%(asctime)s] %(levelname)s - %(funcName)s: %(message)s')
@@ -37,21 +37,26 @@ async def on_ready():
 async def send_card(ctx, card, evo=False):
     logging.info("Trying to send card [{}] {} requested by {}...".format(card, "(evolved)" * evo, ctx.message.author))
     card = pool[card]
-    embed = discord.Embed(title=card.name + " [Evolved]" * evo,
-                          description="{} {} {} from {}".format(card.rarity, card.craft, card.type, card.expac))
+    embed = discord.Embed(title=card.name + " [Evolved]" * evo)
+    embed.add_field(name="Rarity:", value=card.rarity, inline=True)
+    embed.add_field(name="Craft:", value=card.craft)
+    embed.add_field(name="Type:", value=card.type, inline=True)
+    embed.add_field(name="Trait:", value=card.trait)
+    embed.add_field(name="Expansion:", value=card.expac)
     if card.type == "Follower":
         embed.add_field(name="Stats: ", value="{}/{} → {}/{}\n".format(card.attack, card.defense,
-                                                                       card.evoAttack, card.evoDefense))
+                                                                       card.evo_attack, card.evo_defense), inline=False)
         embed.add_field(name="Base effect: ", value="{}\n".format(card.effect), inline=False)
-        embed.add_field(name="Evo effect: ", value=card.evoEffect, inline=False)
+        embed.add_field(name="Evo effect: ", value=card.evo_effect, inline=False)
     else:
         embed.add_field(name="Effect:", value=card.effect)
     if evo:
-        embed.set_image(url=card.evoPic)
-        embed.set_footer(text=card.evoFlair)
+        embed.set_image(url=card.evo_pic)
+        embed.set_footer(text=card.evo_flair)
     else:
         embed.set_image(url=card.pic)
         embed.set_footer(text=card.flair)
+    logging.info("about to send")
     msg = await ctx.send(embed=embed)
     logging.info("...successfully sent, producing message {}.".format(msg.id))
     if card.type == "Follower" and not evo:
@@ -86,24 +91,26 @@ async def random(ctx):
         {0}abomination
         {0}blood gold summon bat
     """.format(bot.command_prefix))
-async def find(ctx, *searchTerms, maxMatches=15):
-    numEmote = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣",
-                5: "5️⃣", 6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣",
-                10: "🇦", 11: "🇧", 12: "🇨", 13: "🇩", 14: "🇪"}
-    emoteNum = {i: j for j, i in numEmote.items()}
+async def find(ctx, *searchTerms: list, maxMatches=15):
+    int_to_emote = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣",
+                    4: "4️⃣", 5: "5️⃣", 6: "6️⃣", 7: "7️⃣",
+                    8: "8️⃣", 9: "9️⃣", 10: "🇦", 11: "🇧",
+                    12: "🇨", 13: "🇩", 14: "🇪", 15: "🇫"}
+    emote_to_int = {i: j for j, i in int_to_emote.items()}
 
-    searchTerms = list(searchTerms)
     logging.info("Trying a card search with terms {} requested by {}...".format(searchTerms, ctx.message.author))
     if len(searchTerms) == 1:
         logging.info("Only one parameter passed, trying a search by name...")
-        matches = pool.search_by_name(searchTerms[0], maxMatches=maxMatches)
-        if not matches:
+        matches = pool.search_by_name(searchTerms[0], max_matches=maxMatches)
+        if type(matches) == list and not matches:
             logging.info("...search by name failed, trying a search by single attribute...")
-            matches = pool.search_by_attributes(searchTerms[0], maxMatches=maxMatches)
+            matches = pool.search_by_attributes(searchTerms[0], max_matches=maxMatches)
     else:
         logging.info("Multiple parameters passed, trying a search by multiple attributes...")
-        matches = pool.search_by_attributes(*searchTerms, maxMatches=maxMatches)
-    if matches:
+        matches = pool.search_by_attributes(*searchTerms, max_matches=maxMatches)
+    if type(matches) == int:
+        await ctx.send("{} matches found. Be more precise.".format(matches))
+    elif matches:
         if len(matches) == 1:
             logging.info("...exactly one card found. Sending that.")
             await send_card(ctx, matches[0])
@@ -111,23 +118,20 @@ async def find(ctx, *searchTerms, maxMatches=15):
             # [1] Send list of n result, react to it with n emotes and send an item among those, if requested.
             embed = discord.Embed(title="Possible matches:")
             for i in range(len(matches)):
-                embed.add_field(name=str(i), value=matches[i])
+                embed.add_field(name=hex(i).replace('0x', '').upper(), value=matches[i])
             msg = await ctx.send(embed=embed)
             logging.info("...successfully found multiple matches, producing message {}.".format(msg.id))
             for i in range(len(matches)):
-                await msg.add_reaction(numEmote[i])
+                await msg.add_reaction(int_to_emote[i])
             try:
                 reaction, user = await bot.wait_for("reaction_add",
-                                                    check=lambda r, u: str(r.emoji) in list(emoteNum)[:len(matches)] \
+                                                    check=lambda r, u: str(r.emoji) in list(emote_to_int)[:len(matches)] \
                                                                        and u != msg.author and r.message.id == msg.id,
                                                     timeout=REACTIONS_COMMANDS_TIMEOUT)
-                card = matches[emoteNum[reaction.emoji]]
+                card = matches[emote_to_int[reaction.emoji]]
                 await send_card(ctx, card)
             except asyncio.TimeoutError:
                 logging.info("Reactable status expired on message {}.".format(msg.id))
-            # End of [1].
-    else:
-        await ctx.send("Too many matches, or no match.")
 
 
 @bot.event
@@ -157,6 +161,15 @@ async def trash(ctx):
     """
     msg = await ctx.send("🗑️")
     await msg.add_reaction("🗑️")
+
+
+@bot.command()
+async def grid(ctx, size=12):
+    imageSet = [pool.get_random_card() for i in range(size)]
+    file = grid_merge(*imageSet)
+    file = discord.File(file)
+    await ctx.send(file=file)
+    os.remove(file)
 
 
 bot.run(token)
