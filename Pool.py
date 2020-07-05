@@ -3,13 +3,25 @@ import os
 import json
 from fuzzywuzzy import fuzz
 
-MAX_MATCHES = 15
-
-
-class TooManyMatches(Exception):
-    def __init__(self, matches):
-        self.matches = matches
-
+sets = {"Token": ("TK", "1970-01-01"),
+        "Basic": ("Basic", "2016-06-21"),
+        "Standard Card Pack": ("STD", "2016-06-21"),
+        "Darkness Evolved": ("DE", "2016-09-29"),
+        "Rise of Bahamut": ("ROB", "2016-12-29"),
+        "Tempest of the Gods": ("TOTG", "2017-03-30"),
+        "Wonderland Dreams": ("WLD", "2017-06-29"),
+        "Starforged Legends": ("SL", "2017-09-28"),
+        "Chronogenesis": ("CG", "2017-12-28"),
+        "Dawnbreak Nightedge": ("DN", "2018-03-28"),
+        "Brigade of the Sky": ("BOTS", "2018-06-27"),
+        "Omen of the Ten": ("OOT", "2018-09-26"),
+        "Altersphere": ("AS", "2018-12-26"),
+        "Steel Rebellion": ("SR", "2019-03-27"),
+        "Rebirth of Glory": ("ROG", "2019-06-27"),
+        "Verdant Conflict": ("VC", "2019-09-25"),
+        "Ultimate Colosseum": ("UC", "2019-12-27"),
+        "World Uprooted": ("WU", "2020-03-29"),
+        "Fortune's Hand": ("FH", "2020-06-29")}
 
 class Pool:
     def __init__(self):
@@ -20,7 +32,7 @@ class Pool:
         c = self.p[name]
         return f'{c["pp_"]}pp {c["rarity_"]} {c["craft_"]} {c["trait_"]} {c["type_"]} {c["expansion_"]} ' \
                f'{c["baseAtk_"]}/{c["baseDef_"]} {"Rotation" if c["rotation_"] else "Unlimited"} ' \
-               f'{c["baseEffect_"]} {c["evoEffect_"]}'.lower()
+               f'{c["baseEffect_"]} {c["evoEffect_"]} {sets[c["expansion_"]][0]}'.lower()
 
     def pic(self, name, evo: bool):
         return f'https://sv.bagoum.com/cardF/en/{"e" if evo else "c"}/{self.p[name]["id_"]}'
@@ -28,7 +40,7 @@ class Pool:
     def get_random_card(self):
         return self.p[random.choice(list(self.p.keys()))]["name_"]
 
-    def search_by_name(self, text, max_matches=MAX_MATCHES, similarity_threshold=70):
+    def search_by_name(self, text, similarity_threshold=70):
         text = text.lower()
         result = []
         fuzzy_result = []
@@ -40,17 +52,13 @@ class Pool:
                 fuzzy_result.append(i)
         if not result:
             return fuzzy_result
-        if len(result) > max_matches:
-            raise TooManyMatches(len(result))
         return result
 
-    def search_by_attributes(self, attributes: str, max_matches=MAX_MATCHES):
+    def search_by_attributes(self, attributes: str):
         result = []
         for card in self.p:
             if all(attr in self.searchable(card) for attr in attributes.lower().split(' ')):
                 result.append(card)
-        if len(result) > max_matches:
-            raise TooManyMatches(len(result))
         return result
 
 
@@ -60,13 +68,10 @@ def module_test():
     print(p.get_random_card())
     print(p.search_by_name("Vania"))
     print(p.search_by_name("Abominecion"))
-    try:
-        print(p.search_by_attributes("2/2"))
-    except TooManyMatches as t:
-        print(f'found {t.matches} matches')
+    print(p.search_by_attributes("2/2"))
     print(p.search_by_attributes("2/2 gold neutral banish"))
     print(p.pic("Goblin", True))
     print(p.search_by_attributes("7/4"))
     print(p.searchable("Hulking Dragonewt"))
 
-# module_test()
+#module_test()
