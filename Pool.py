@@ -23,6 +23,7 @@ sets = {"Token": ("TK", "1970-01-01"),
         "World Uprooted": ("WU", "2020-03-29"),
         "Fortune's Hand": ("FH", "2020-06-29")}
 
+
 class Pool:
     def __init__(self):
         with open(f'{os.getcwd()}/shadowverse-json/all.json', 'r') as f:
@@ -40,24 +41,24 @@ class Pool:
     def get_random_card(self):
         return self.p[random.choice(list(self.p.keys()))]["name_"]
 
-    def search_by_name(self, text, similarity_threshold=70):
-        text = text.lower()
-        result = []
-        fuzzy_result = []
+    def search_by_name(self, search_terms, similarity_threshold=70):
+        search_terms = search_terms.lower()
+        ret = []
+        fuzzy_ret = []
         for i in self.p:
-            similarity = fuzz.partial_ratio(text, i.lower())
-            if text in i.lower():
-                result.append(i)
+            similarity = fuzz.partial_ratio(search_terms, i.lower())
+            if similarity == 100:
+                ret.append(i)
             if similarity > similarity_threshold:
-                fuzzy_result.append(i)
-        if not result:
-            return fuzzy_result
-        return result
+                fuzzy_ret.append(i)
+        if not ret:
+            return fuzzy_ret
+        return ret
 
-    def search_by_attributes(self, attributes: str):
+    def search_by_attributes(self, search_terms: str):
         result = []
         for card in self.p:
-            if all(attr in self.searchable(card) for attr in attributes.lower().split(' ')):
+            if all(attr in self.searchable(card) for attr in search_terms.lower().split(' ')):
                 result.append(card)
         return result
 
@@ -74,4 +75,4 @@ def module_test():
     print(p.search_by_attributes("7/4"))
     print(p.searchable("Hulking Dragonewt"))
 
-#module_test()
+# module_test()
