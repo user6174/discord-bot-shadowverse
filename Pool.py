@@ -3,6 +3,7 @@ import os
 import json
 from fuzzywuzzy import fuzz
 
+
 sets = {"Token": ("TK", "1970-01-01"),
         "Basic": ("Basic", "2016-06-21"),
         "Standard Card Pack": ("STD", "2016-06-21"),
@@ -35,8 +36,11 @@ class Pool:
                f'{c["baseAtk_"]}/{c["baseDef_"]} {"Rotation" if c["rotation_"] else "Unlimited"} ' \
                f'{c["baseEffect_"]} {c["evoEffect_"]} {sets[c["expansion_"]][0]}'.lower()
 
-    def pic(self, name, evo: bool):
-        return f'https://sv.bagoum.com/cardF/en/{"e" if evo else "c"}/{self.p[name]["id_"]}'
+    def pic(self, name, evo):
+        return f'https://svgdb.me/assets/cards/{"E" if evo else "C"}_{self.p[name]["id_"]}.png'
+
+    def full_pic(self, name, evo):
+        return f'https://svgdb.me/assets/fullart/{str(self.p[name]["id_"]) + ("1" if evo else "0")}.png'
 
     def get_random_card(self):
         return self.p[random.choice(list(self.p.keys()))]["name_"]
@@ -47,7 +51,7 @@ class Pool:
         fuzzy_ret = []
         for i in self.p:
             similarity = fuzz.partial_ratio(search_terms, i.lower())
-            if similarity == 100:
+            if search_terms in i.lower():
                 ret.append(i)
             if similarity > similarity_threshold:
                 fuzzy_ret.append(i)
@@ -74,5 +78,6 @@ def module_test():
     print(p.pic("Goblin", True))
     print(p.search_by_attributes("7/4"))
     print(p.searchable("Hulking Dragonewt"))
+
 
 # module_test()
