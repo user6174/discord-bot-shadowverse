@@ -1,16 +1,16 @@
-import asyncio
-import discord  # https://discordpy.readthedocs.io/en/latest/api.html
-import selenium
-from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
-import logging
 import sys
 
+import asyncio
+import discord  # https://discordpy.readthedocs.io/en/latest/api.html
+from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
+
+import selenium
 from selenium.webdriver.chrome.options import Options
 
 from Pool import *
+from Jcg_utils import *
 
-# TODO finish help command,
-#  modify voices after svgdb, jcg grabbing last tourney before displaying
+# TODO logging, maybe documentation
 
 ########################################################################################################################
 # GLOBALS ##############################################################################################################
@@ -219,7 +219,7 @@ async def _help(ctx):
     asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
     for command in bot.commands:
         asyncio.ensure_future(emote_toggle(msg, True, emotes[str(command)[0].upper()], send_command_help,
-                                           (ctx, command, embed)))
+                                           (ctx, command)))
 
 
 ########################################################################################################################
@@ -255,13 +255,7 @@ async def find(ctx, search_terms):
         await ctx.send(embed=discord.Embed(title=f'{card} matches found. Be more precise!'))
 
 
-@bot.command(aliases=['pic'], help="TBW")
-# "**Usage**:\n\n"
-#                                         f'• **{bot.command_prefix}img** <search terms> <optional parameters>\n'
-#                                         f'• **{bot.command_prefix}pic** <search terms> <optional parameters>\n'
-#                                         f'• **{bot.command_prefix}i** <search terms> <optional parameters>\n'
-#                                         "\n**Optional parameters**:\n\n"
-#                                         "**evo** - displays the evo art.")
+@bot.command(aliases=['pic', 'art'], help="**Special parameters**:\n\nNone.")
 async def img(ctx, search_terms, evo=False, exact=False):
     logging.info(f'Requested a card image with search terms "{search_terms}" by {ctx.message.author}')
     card = search_terms if exact else await search(ctx, search_terms)
@@ -277,7 +271,7 @@ async def img(ctx, search_terms, evo=False, exact=False):
         await ctx.send(embed=discord.Embed(title=f'{card} matches found. Be more precise!'))
 
 
-@bot.command(aliases=['v', 'sound', 's'], help="TBW")
+@bot.command(aliases=['v', 'sound', 's'], help="**Special parameters**:\n\nNone.")
 async def voice(ctx, search_terms, language='jp', exact=False):
     logging.info(f'Requested a card\' voice lines with search terms "{search_terms}" by {ctx.message.author}')
     card = search_terms if exact else await search(ctx, search_terms)
@@ -291,7 +285,7 @@ async def voice(ctx, search_terms, language='jp', exact=False):
         driver.get(f'https://svgdb.me/cards/{pool.p[card]["id_"]}')
         table = driver.find_element_by_xpath("//table")
         print(table)
-        game_actions = [action.text for action in table.find_elements_by_xpath("//td") if action.text!=""]
+        game_actions = [action.text for action in table.find_elements_by_xpath("//td") if action.text != ""]
         mp3s = [mp3.get_attribute('src') for mp3 in table.find_elements_by_xpath("//audio")
                 if language in mp3.get_attribute('src')]
         print(game_actions)
@@ -304,13 +298,24 @@ async def voice(ctx, search_terms, language='jp', exact=False):
         await ctx.send(embed=discord.Embed(title=f'{card} matches found. Be more precise!'))
 
 
-@bot.command(help="TBW")
-async def jcg(ctx, tops=('1', '2', '4', '8')):
+@bot.command(help="**Special parameters**:\n\n"
+                  "`ul`: displays the last Unlimited JCG."
+                  "`no arguments/rot`: displays the last Rotation JCG.")
+async def jcg(ctx, format_='rot', tops=('1', '2', '4', '8')):
+    from natsort import natsort
+    format_ = 'rot' if format_ not in ('rot', 'ul') else format_
     craft_names = ("", "Forestcraft", "Swordcraft", "Runecraft", "Dragoncraft",
                    "Shadowcraft", "Bloodcraft", "Havencraft", "Portalcraft")
-    with open(max([f for f in os.listdir(os.curdir) if f.endswith(".json")], key=os.path.getctime), 'r') as f_:
+    if tops != ('16',):
+        msg = await ctx.send(embed=discord.Embed(title="Fetching data..."))
+        scrape_last_jcg(format_)
+        await msg.delete()
+    files = natsort.natsorted([f'{os.getcwd()}/jcg/{format_}/{f}'
+                               for f in os.listdir(f'{os.getcwd()}/jcg/{format_}') if f.endswith(".json")])
+    with open(files[-1], 'r') as f_:
         tourney = json.load(f_)
-    embed = discord.Embed(title=f_.name[:-5])
+    embed = discord.Embed(title=f_.name.split("/")[-1][:-5])
+    embed.url = f'https://sv.j-cg.com/compe/view/tour/{tourney["code"]}'
     for top in tops:
         embed.add_field(name=f'**TOP{top}**', value='\u200b', inline=False)
         for idx, player in enumerate(tourney[top]):
@@ -326,7 +331,7 @@ async def jcg(ctx, tops=('1', '2', '4', '8')):
         embed.add_field(name="Class Distribution", value=craft_distribution)
     msg = await ctx.send(embed=embed)
     if tops != ('16',):
-        asyncio.ensure_future(emote_toggle(msg, False, emotes["down"], jcg, (ctx, ('16',))))
+        asyncio.ensure_future(emote_toggle(msg, False, emotes["down"], jcg, (ctx, format_, ('16',))))
 
 
 bot.run(token)
