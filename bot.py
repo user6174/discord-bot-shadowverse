@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from Pool import *
 from Jcg_utils import *
 
-# TODO logging, maybe documentation
+# TODO logging, maybe documentation, add trash 
 
 ########################################################################################################################
 # GLOBALS ##############################################################################################################
@@ -308,7 +308,7 @@ async def jcg(ctx, format_='rot', tops=('1', '2', '4', '8')):
                    "Shadowcraft", "Bloodcraft", "Havencraft", "Portalcraft")
     if tops != ('16',):
         msg = await ctx.send(embed=discord.Embed(title="Fetching data..."))
-        scrape_last_jcg(format_)
+        scrape_jcg(format_, once=True)
         await msg.delete()
     files = natsort.natsorted([f'{os.getcwd()}/jcg/{format_}/{f}'
                                for f in os.listdir(f'{os.getcwd()}/jcg/{format_}') if f.endswith(".json")])
