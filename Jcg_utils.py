@@ -25,13 +25,13 @@ def scrape_tournament(url, format_):
             'グループ予選' in name or \
             '2Pick' in name:  # skip already parsed and qualifying and 2pick tournaments
         print(f'Skipping {name}')
-        return
+        return name
     print(name)
-    rounds = len(soup.find_all("ul", class_="matches"))
+    rounds = len(soup.find_all("ul", class_="matches")) + 1
     to_json = {pos: [] for pos in [2**round_ for round_ in range(rounds)]}
     to_json["crafts"] = [0] * 8
     to_json["code"] = url.split('/')[-1]
-    for round_ in range(1, rounds+1):
+    for round_ in range(1, rounds):
         matches = soup.find('div', class_=f'round{round_}')
         print(f'Scraping round {round_}...')
         for match in matches.find_all('li', class_="match"):
@@ -49,7 +49,7 @@ def scrape_tournament(url, format_):
             to_json[2 ** (rounds - round_)].append(player)
             for craft in crafts:
                 to_json["crafts"][craft] += 1
-            if round_ == rounds:  # registering the winner
+            if round_ == rounds - 1:  # registering the winner
                 player = build_player(match_soup, not loser_idx)
                 crafts = (int(deck[59]) - 1 for deck in player["decks"])
                 to_json[1].append(player)
@@ -57,6 +57,7 @@ def scrape_tournament(url, format_):
                     to_json["crafts"][craft] += 1
     with open(file_path, 'w+') as f:
         json.dump(to_json, f)
+    return name
 
 
 def build_player(match_soup, player_idx):
@@ -79,9 +80,9 @@ def scrape_jcg(format_, page=0, once=False):
             url = f'https://sv.j-cg.com/compe/view/tour/' \
                   f'{tourney.find("a", class_="link-nodeco link-black")["href"].split("/")[-1]}'
             print(url)
+            if once:
+                return scrape_tournament(url, format_)
             scrape_tournament(url, format_)
-            if once:  # if you only need the most recent jcg
-                return
 
 
 def scrape_everything(format_):
@@ -99,3 +100,4 @@ def scrape_pre_split():
 # scrape_everything('rotation')
 # scrape_everything('unlimited')
 # scrape_pre_split()
+# scrape_jcg('rotation', once=True)

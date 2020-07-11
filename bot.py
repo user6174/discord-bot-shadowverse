@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from Pool import *
 from Jcg_utils import *
 
-# TODO logging, maybe documentation, add trash 
+# TODO logging, maybe documentation
 
 ########################################################################################################################
 # GLOBALS ##############################################################################################################
@@ -264,6 +264,7 @@ async def img(ctx, search_terms, evo=False, exact=False):
     if type(card) == str:
         embed = discord.Embed().set_image(url=pool.full_pic(card, evo))
         msg = await ctx.send(embed=embed)
+        asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
         if pool.p[card]["type_"] == "Follower":
             asyncio.ensure_future(emote_toggle(msg, True, emotes["B"] if evo else emotes["E"], img,
                                                (ctx, card, not evo, True)))
@@ -293,7 +294,8 @@ async def voice(ctx, search_terms, language='jp', exact=False):
         for action, mp3 in zip(game_actions, mp3s):
             embed.add_field(name='\u200b', value=f'[{action}]({mp3})', inline=False)
         driver.close()
-        await ctx.send(embed=embed)
+        msg = await ctx.send(embed=embed)
+        asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
     else:
         await ctx.send(embed=discord.Embed(title=f'{card} matches found. Be more precise!'))
 
@@ -301,37 +303,35 @@ async def voice(ctx, search_terms, language='jp', exact=False):
 @bot.command(help="**Special parameters**:\n\n"
                   "`ul`: displays the last Unlimited JCG."
                   "`no arguments/rot`: displays the last Rotation JCG.")
-async def jcg(ctx, format_='rot', tops=('1', '2', '4', '8')):
+async def jcg(ctx, format_='rot', tops=('1', '2', '4', '8'), name=None):
     from natsort import natsort
-    format_ = 'rot' if format_ not in ('rot', 'ul') else format_
+    format_ = 'unlimited' if format_ in ('ul', 'unlimited') else 'rotation'
     craft_names = ("", "Forestcraft", "Swordcraft", "Runecraft", "Dragoncraft",
                    "Shadowcraft", "Bloodcraft", "Havencraft", "Portalcraft")
-    if tops != ('16',):
+    if tops == ('1', '2', '4', '8'):
         msg = await ctx.send(embed=discord.Embed(title="Fetching data..."))
-        scrape_jcg(format_, once=True)
+        name = scrape_jcg(format_, once=True)
         await msg.delete()
-    files = natsort.natsorted([f'{os.getcwd()}/jcg/{format_}/{f}'
-                               for f in os.listdir(f'{os.getcwd()}/jcg/{format_}') if f.endswith(".json")])
-    with open(files[-1], 'r') as f_:
+    with open(f'{os.getcwd()}/jcg/{format_}/{name}', 'r') as f_:
         tourney = json.load(f_)
-    embed = discord.Embed(title=f_.name.split("/")[-1][:-5])
+    embed = discord.Embed(title=name[:-5])
     embed.url = f'https://sv.j-cg.com/compe/view/tour/{tourney["code"]}'
     for top in tops:
         embed.add_field(name=f'**TOP{top}**', value='\u200b', inline=False)
         for idx, player in enumerate(tourney[top]):
             if idx > 0 and idx % 2:
                 embed.add_field(name='\u200b', value='\u200b')
-            embed.add_field(name=player["player"], value=
-            f'**[{craft_names[int(player["decks"][0][59])]}]({player["decks"][0]})**\n' \
-            f'**[{craft_names[int(player["decks"][1][59])]}]({player["decks"][1]})**\n', inline=True)
-    if tops != ('16',):
+            decks = '\n'.join(f'**[{craft_names[int(deck[59])]}]({deck})**\n' for deck in player["decks"])
+            embed.add_field(name=player["player"], value=decks, inline=True)
+    if tops == ('1', '2', '4', '8'):
         craft_distribution = ''
         for idx, craft in enumerate(tourney["crafts"]):
             craft_distribution += f'**{craft}** {craft_names[idx + 1]}\n'
         embed.add_field(name="Class Distribution", value=craft_distribution)
     msg = await ctx.send(embed=embed)
-    if tops != ('16',):
-        asyncio.ensure_future(emote_toggle(msg, False, emotes["down"], jcg, (ctx, format_, ('16',))))
+    asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
+    if tops == ('1', '2', '4', '8'):
+        asyncio.ensure_future(emote_toggle(msg, False, emotes["down"], jcg, (ctx, format_, ('16',), name)))
 
 
 bot.run(token)
