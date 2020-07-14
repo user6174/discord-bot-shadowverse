@@ -32,7 +32,7 @@ class Pool:
 
     def searchable(self, name):
         c = self.p[name]
-        return f'{c["pp_"]}pp {c["rarity_"]} {c["craft_"]} {c["trait_"]} {c["type_"]} {c["expansion_"]} ' \
+        return f'{c["name_"]} {c["pp_"]}pp {c["rarity_"]} {c["craft_"]} {c["trait_"]} {c["type_"]} {c["expansion_"]} ' \
                f'{c["baseAtk_"]}/{c["baseDef_"]} {"Rotation" if c["rotation_"] else "Unlimited"} ' \
                f'{c["baseEffect_"]} {c["evoEffect_"]} {sets[c["expansion_"]][0]}'.lower()
 
@@ -78,6 +78,7 @@ def module_test():
     print(p.pic("Goblin", True))
     print(p.search_by_attributes("7/4"))
     print(p.searchable("Hulking Dragonewt"))
-
+    print(p.search_by_name("golem legend fortune") + p.search_by_attributes("golem legend fortune"))
+    print(p.search_by_name("milteo shadow legend") + p.search_by_attributes("milteo shadow legend"))
 
 # module_test()

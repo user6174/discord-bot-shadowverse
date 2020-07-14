@@ -55,8 +55,8 @@ async def on_ready():
 async def on_command_error(ctx, error):
     """command prefix + string defaults to find(string)"""
     if isinstance(error, commands.CommandNotFound):
-        search_terms = ctx.message.content[1:]
-        await find(ctx, search_terms)
+        logging.info(f'Requested a card info page with arguments {ctx.message.content[1:]} by {ctx.message.author}')
+        await find(ctx, ctx.message.content[1:])
 
 
 ########################################################################################################################
@@ -71,7 +71,7 @@ async def emote_toggle(msg, delete_original, emote, when_toggled, when_toggled_a
                                          check=lambda rctn, usr: str(rctn.emoji) == emote
                                                                  and usr != msg.author and rctn.message.id == msg.id,
                                          timeout=REACTIONS_COMMANDS_TIMEOUT)
-        logging.info(f'Pressed emote {emote} on message {msg.id}, '
+        logging.info(f'{_} pressed emote {emote} on message {msg.id}, '
                      f'requesting {when_toggled} with arguments {when_toggled_args}.')
         if delete_original:
             await msg.delete()
@@ -84,26 +84,27 @@ async def emote_toggle(msg, delete_original, emote, when_toggled, when_toggled_a
 async def search(ctx, search_terms):
     logging.info(f'Trying a card search with search terms "{search_terms}" requested by {ctx.message.author}...')
     if search_terms[0] == bot.command_prefix:
-        logging.info("\tSearch by name requested.")
+        logging.info("\tSearch by name requested...")
         search_terms = ' '.join([word[0].upper() + word[1:].lower() for word in search_terms[1:].split(' ')])
-        matches = (pool.p[card]["name_"] for card in pool.p if pool.p[card]["name_"] == search_terms)
+        matches = [pool.p[card]["name_"] for card in pool.p if pool.p[card]["name_"] == search_terms]
         if not matches:
-            logging.info("\tNo exact matches, relaxing the search to substrings.")
+            logging.info("\t...no exact matches, relaxing the search to substrings...")
             matches = pool.search_by_name(search_terms, similarity_threshold=100)
     else:
-        logging.info("\tSearch by attributes requested")
+        logging.info("\tSearch by attributes requested...")
         matches = tuple(dict.fromkeys(pool.search_by_name(search_terms) + pool.search_by_attributes(search_terms)))
     logging.info(f'\t...found the following matches: [{", ".join(matches)}]...')
     if len(matches) == 0:
+        logging.info(f'...no cards found.')
         return 0
     elif len(matches) == 1:
-        logging.info(f'...exactly one card found: {matches[0]}. Sending that.')
+        logging.info(f'...exactly one card found. Returning that.')
         return matches[0]
     elif len(matches) > MAX_MATCHES_LIST:
         logging.info(f'...{len(matches)} cards found, too many to list (listing limit: {MAX_MATCHES_LIST}).')
         return len(matches)
     elif len(matches) < MAX_MATCHES_DISPLAY:
-        logging.info(f'\t...{len(matches)} cards found, an option menu can be returned '
+        logging.info(f'\t...{len(matches)} cards found, returning an option menu '
                      f'(displaying limit: {MAX_MATCHES_DISPLAY})...')
         embed = discord.Embed(title="Possible matches:")
         for idx, card in enumerate(matches):
@@ -134,7 +135,7 @@ async def search(ctx, search_terms):
 
 
 async def send_card(ctx, card, evo=False, img=False, made_by=None):
-    logging.info(f'\tTrying to send card {card + (" Evolved" if evo else "")} requested by {ctx.message.author}...')
+    logging.info(f'\tSending card {card + (" Evolved" if evo else "")} requested by {ctx.message.author}...')
     card = pool.p[card]
     embed = discord.Embed(title=card["name_"] + " Evolved" * evo)
     # first row
@@ -172,7 +173,7 @@ async def send_card(ctx, card, evo=False, img=False, made_by=None):
     else:
         embed.set_footer(text=card["baseFlair_"])
     msg = await ctx.send(embed=embed)
-    logging.info(f'\t...successfully sent, producing message {msg.id}.')
+    logging.info(f'...successfully sent, producing message {msg.id}.')
     # add toggleable emotes
     if made_by is not None:
         asyncio.ensure_future(emote_toggle(msg, True, emotes["back"], send_card, (ctx, made_by, False, img)))
@@ -191,12 +192,30 @@ async def send_card(ctx, card, evo=False, img=False, made_by=None):
                                            (ctx, related, False, img, card["name_"])))
 
 
-async def send_command_help(ctx, command):
-    embed = discord.Embed(title=str(command))
-    embed.add_field(name='\u200b', value=str(command.help))
-    msg = await ctx.send(embed=embed)
-    asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
-    asyncio.ensure_future(emote_toggle(msg, True, emotes["back"], _help, (ctx,)))
+async def card_command_template(ctx, *args):
+    print(args)
+    args, command = args[:-1], args[-1]
+    print(args)
+    logging.info(f'Requested card command "{command.__name__}" with search terms "{" ".join(args)}" '
+                 f'by {ctx.message.author}')
+    card = await search(ctx, ' '.join(args))
+    if card is None:
+        return
+    if type(card) == str:
+        await command(ctx, card)
+    else:
+        await ctx.send(embed=discord.Embed(title=f'{card} matches found. Be more precise!'))
+
+
+########################################################################################################################
+# CARD COMMANDS ########################################################################################################
+########################################################################################################################
+
+@bot.remove_command('help')
+@bot.command(aliases=['h'], help=":thinking:")
+async def help(ctx):
+    logging.info(f'Requested help page by {ctx.message.author}')
+    await _help(ctx)
 
 
 async def _help(ctx):
@@ -222,14 +241,13 @@ async def _help(ctx):
                                            (ctx, command)))
 
 
-########################################################################################################################
-# CARD COMMANDS ########################################################################################################
-########################################################################################################################
-
-@bot.remove_command('help')
-@bot.command(aliases=['h'], help=":thinking:")
-async def help(ctx):
-    await _help(ctx)
+async def send_command_help(ctx, command):
+    embed = discord.Embed(title=str(command))
+    embed.add_field(name='\u200b', value=str(command.help))
+    logging.info(f'Requested help info page of command {str(command)}')
+    msg = await ctx.send(embed=embed)
+    asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
+    asyncio.ensure_future(emote_toggle(msg, True, emotes["back"], _help, (ctx,)))
 
 
 @bot.command(help=
@@ -244,67 +262,55 @@ async def help(ctx):
              f'(because typos are allowed a search with many terms might contain unusual results)\n'
              f'• `{bot.command_prefix}{bot.command_prefix}azazel,`\n'
              f'• `{bot.command_prefix}{bot.command_prefix}azazel`\n')
-async def find(ctx, search_terms):
-    logging.info(f'Requested a card info page with search terms "{search_terms}" by {ctx.message.author}')
-    card = await search(ctx, search_terms)
-    if card is None:
-        return
-    if type(card) == str:
-        await send_card(ctx, card)
-    else:
-        await ctx.send(embed=discord.Embed(title=f'{card} matches found. Be more precise!'))
+async def find(ctx, *args):
+    await card_command_template(ctx, *(tuple(args) + (send_card,)))
 
 
 @bot.command(aliases=['pic', 'art'], help="**Special parameters**:\n\nNone.")
-async def img(ctx, search_terms, evo=False, exact=False):
-    logging.info(f'Requested a card image with search terms "{search_terms}" by {ctx.message.author}')
-    card = search_terms if exact else await search(ctx, search_terms)
-    if card is None:
-        return
-    if type(card) == str:
-        embed = discord.Embed().set_image(url=pool.full_pic(card, evo))
-        msg = await ctx.send(embed=embed)
-        asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
-        if pool.p[card]["type_"] == "Follower":
-            asyncio.ensure_future(emote_toggle(msg, True, emotes["B"] if evo else emotes["E"], img,
-                                               (ctx, card, not evo, True)))
-    else:
-        await ctx.send(embed=discord.Embed(title=f'{card} matches found. Be more precise!'))
+async def img(ctx, *args):
+    await card_command_template(ctx, *(tuple(args) + (_img,)))
+
+
+async def _img(ctx, card_name, evo=False):
+    embed = discord.Embed().set_image(url=pool.full_pic(card_name, evo))
+    msg = await ctx.send(embed=embed)
+    asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
+    if pool.p[card_name]["type_"] == "Follower":
+        asyncio.ensure_future(emote_toggle(msg, True, emotes["B"] if evo else emotes["E"], _img,
+                                           (ctx, card_name, not evo)))
 
 
 @bot.command(aliases=['v', 'sound', 's'], help="**Special parameters**:\n\nNone.")
-async def voice(ctx, search_terms, language='jp', exact=False):
-    logging.info(f'Requested a card\' voice lines with search terms "{search_terms}" by {ctx.message.author}')
-    card = search_terms if exact else await search(ctx, search_terms)
-    if card is None:
-        return
-    if type(card) == str:
-        embed = discord.Embed(title=card)
-        options = Options()
-        options.add_argument("--headless")
-        driver = selenium.webdriver.Chrome(options=options)
-        driver.get(f'https://svgdb.me/cards/{pool.p[card]["id_"]}')
-        table = driver.find_element_by_xpath("//table")
-        print(table)
-        game_actions = [action.text for action in table.find_elements_by_xpath("//td") if action.text != ""]
-        mp3s = [mp3.get_attribute('src') for mp3 in table.find_elements_by_xpath("//audio")
-                if language in mp3.get_attribute('src')]
-        print(game_actions)
-        print(mp3s)
-        for action, mp3 in zip(game_actions, mp3s):
-            embed.add_field(name='\u200b', value=f'[{action}]({mp3})', inline=False)
-        driver.close()
-        msg = await ctx.send(embed=embed)
-        asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
-    else:
-        await ctx.send(embed=discord.Embed(title=f'{card} matches found. Be more precise!'))
+async def voice(ctx, *args):
+    await card_command_template(ctx, *(tuple(args) + (_voice,)))
+
+
+async def _voice(ctx, card, language='jp'):
+    embed = discord.Embed(title=card)
+    options = Options()
+    options.add_argument("--headless")
+    driver = selenium.webdriver.Chrome(options=options)
+    driver.get(f'https://svgdb.me/cards/{pool.p[card]["id_"]}')
+    table = driver.find_element_by_xpath("//table")
+    print(table)
+    game_actions = [action.text for action in table.find_elements_by_xpath("//td") if action.text != ""]
+    mp3s = [mp3.get_attribute('src') for mp3 in table.find_elements_by_xpath("//audio")
+            if language in mp3.get_attribute('src')]
+    print(game_actions)
+    print(mp3s)
+    for action, mp3 in zip(game_actions, mp3s):
+        embed.add_field(name='\u200b', value=f'[{action}]({mp3})', inline=False)
+    driver.close()
+    msg = await ctx.send(embed=embed)
+    asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: None, ()))
 
 
 @bot.command(help="**Special parameters**:\n\n"
                   "`ul`: displays the last Unlimited JCG."
-                  "`no arguments/rot`: displays the last Rotation JCG.")
+                  "`no arguments/rot`: displays the last Rotation JCG."
+                  "\n\n**Note**:\n\n"
+                  "The program may need a minute to fetch the latest JCG if it's not in the internal database yet.")
 async def jcg(ctx, format_='rot', tops=('1', '2', '4', '8'), name=None):
-    from natsort import natsort
     format_ = 'unlimited' if format_ in ('ul', 'unlimited') else 'rotation'
     craft_names = ("", "Forestcraft", "Swordcraft", "Runecraft", "Dragoncraft",
                    "Shadowcraft", "Bloodcraft", "Havencraft", "Portalcraft")
@@ -321,7 +327,7 @@ async def jcg(ctx, format_='rot', tops=('1', '2', '4', '8'), name=None):
         for idx, player in enumerate(tourney[top]):
             if idx > 0 and idx % 2:
                 embed.add_field(name='\u200b', value='\u200b')
-            decks = '\n'.join(f'**[{craft_names[int(deck[59])]}]({deck})**\n' for deck in player["decks"])
+            decks = '\n'.join(f'**[{craft_names[int(deck[59])]}]({deck})**' for deck in player["decks"])
             embed.add_field(name=player["player"], value=decks, inline=True)
     if tops == ('1', '2', '4', '8'):
         craft_distribution = ''

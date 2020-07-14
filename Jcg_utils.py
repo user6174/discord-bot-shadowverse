@@ -86,18 +86,20 @@ def scrape_jcg(format_, page=0, once=False):
 
 
 def scrape_everything(format_):
-    for page in range(33):
+    for page in range(35):
         print(f'{"*" * 75} page {page + 1} {"*" * 75}')
         scrape_jcg(format_, page)
 
 
 def scrape_pre_split():
-    for code in range(750):
+    for code in range(750, 2500):
         url = f'https://sv.j-cg.com/compe/view/tour/{code}'
         print(url)
         scrape_tournament(url, 'other')
 
+
 # scrape_everything('rotation')
 # scrape_everything('unlimited')
+# scrape_jcg('rotation')
+# scrape_jcg('unlimited')
 # scrape_pre_split()
-# scrape_jcg('rotation', once=True)
