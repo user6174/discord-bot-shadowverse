@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+
+import pyshorteners
 from bs4 import BeautifulSoup
 import requests
 from requests.adapters import HTTPAdapter
@@ -71,6 +73,7 @@ def build_player(match_soup, player_idx):
 
 def scrape_jcg(format_, page=0, once=False):
     url = f'https://sv.j-cg.com/compe/{format_}?perpage=20&start={20 * page}'
+    print(url)
     page = requests.get(url)
     soup = BeautifulSoup(page.content, 'html.parser')
     for tourney in soup.find_all('tr', class_="competition"):
@@ -92,14 +95,30 @@ def scrape_everything(format_):
 
 
 def scrape_pre_split():
-    for code in range(750, 2500):
+    for code in range(750):
         url = f'https://sv.j-cg.com/compe/view/tour/{code}'
         print(url)
         scrape_tournament(url, 'other')
 
 
+# format_ = "rotation"
+# name = "JCG Shadowverse Open 14th Season Vol.8 7月12日 ローテーション大会 決勝トーナメント.json"
+# file_path = f'{os.getcwd()}/jcg/{format_}/{name}'
+# shortener = pyshorteners.Shortener()
+# with open(file_path, 'r') as f:
+#     tourney = json.load(f)
+# for top in ['1', '2', '4']:
+#     craft_names = ("", "Forestcraft", "Swordcraft", "Runecraft", "Dragoncraft",
+#                    "Shadowcraft", "Bloodcraft", "Havencraft", "Portalcraft")
+#     decks = ["/".join(f'[{craft_names[int(deck[59])]}]({shortener.tinyurl.short(deck)})' for deck in player["decks"]) for
+#              player in tourney[top]]
+#     line = [f'{player["player"]}: {decks[idx]}\n' for idx, player in enumerate(tourney[top])]
+#     print(", ".join(line))
+
+
+
 # scrape_everything('rotation')
 # scrape_everything('unlimited')
-# scrape_jcg('rotation')
+# scrape_jcg('rotation', once=True)
 # scrape_jcg('unlimited')
 # scrape_pre_split()

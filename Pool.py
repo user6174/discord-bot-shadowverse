@@ -25,9 +25,13 @@ sets = {"Token": ("TK", "1970-01-01"),
         "Fortune's Hand": ("FH", "2020-06-29")}
 
 
+def full_pic(id_, evo):
+    return f'https://svgdb.me/assets/fullart/{str(id_) + ("1" if evo else "0")}.png'
+
+
 class Pool:
     def __init__(self):
-        with open(f'{os.getcwd()}/shadowverse-json/all.json', 'r') as f:
+        with open(f'{os.getcwd()}/shadowverse-json/en/all.json', 'r') as f:
             self.p = json.load(f)
 
     def searchable(self, name):
@@ -38,9 +42,6 @@ class Pool:
 
     def pic(self, name, evo):
         return f'https://svgdb.me/assets/cards/{"E" if evo else "C"}_{self.p[name]["id_"]}.png'
-
-    def full_pic(self, name, evo):
-        return f'https://svgdb.me/assets/fullart/{str(self.p[name]["id_"]) + ("1" if evo else "0")}.png'
 
     def get_random_card(self):
         return self.p[random.choice(list(self.p.keys()))]["name_"]
