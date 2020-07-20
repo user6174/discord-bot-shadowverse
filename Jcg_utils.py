@@ -2,7 +2,6 @@ import json
 import logging
 import os
 
-import pyshorteners
 from bs4 import BeautifulSoup
 import requests
 from requests.adapters import HTTPAdapter

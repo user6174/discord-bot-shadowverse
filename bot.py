@@ -4,6 +4,7 @@ from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/e
 from Embeds import *
 from Embeds import _help_embed, _help_command_embed, _img_embed, _card_info_embed, _voice_embed
 from Jcg_utils import *
+import pyshorteners
 
 # TODO think about indexing dict by ids, ready for jp ui (cv field), tidy up after embeds,
 #  find a way to reuse reactions on message edit
@@ -17,7 +18,7 @@ with open("token.txt", 'r') as txt:
 bot = commands.Bot(command_prefix='+')
 MAX_MATCHES_DISPLAY = 15
 MAX_MATCHES_LIST = 60
-REACTIONS_COMMANDS_TIMEOUT = 10.0  # seconds
+REACTIONS_COMMANDS_TIMEOUT = 120.0  # seconds
 
 
 ########################################################################################################################
