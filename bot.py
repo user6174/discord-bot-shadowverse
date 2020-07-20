@@ -1,8 +1,12 @@
 import asyncio
+
 from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
 from Embeds import *
 from Embeds import _help_embed, _help_command_embed, _img_embed, _card_info_embed, _voice_embed
 from Jcg_utils import *
+
+# TODO think about indexing dict by ids, ready for jp ui (cv field), tidy up after embeds,
+#  find a way to reuse reactions on message edit
 
 ########################################################################################################################
 # GLOBALS ##############################################################################################################
@@ -13,8 +17,7 @@ with open("token.txt", 'r') as txt:
 bot = commands.Bot(command_prefix='+')
 MAX_MATCHES_DISPLAY = 15
 MAX_MATCHES_LIST = 60
-REACTIONS_COMMANDS_TIMEOUT = 300.0  # seconds
-EMBED_CHAR_LIMIT = 6_000
+REACTIONS_COMMANDS_TIMEOUT = 10.0  # seconds
 
 
 ########################################################################################################################
@@ -64,18 +67,20 @@ async def emote_toggle(msg, emote, main_embed, embed_maker, embed_maker_args):
         logging.info(f'{user} pressed emote {emote} on message {msg.id}, '
                      f'requesting {embed_maker.__name__}{embed_maker_args}.')
         new_embed = embed_maker(*embed_maker_args)[0]
-        if new_embed is None:
+        if new_embed is None:  # for trash emote
             return await msg.delete()
         await msg.remove_reaction(member=user, emoji=reaction)
         await msg.remove_reaction(member=bot.user, emoji=reaction)
         await msg.edit(embed=new_embed)
         if new_embed != main_embed:
-            return asyncio.ensure_future(emote_toggle(msg, emotes["back"], main_embed, lambda _: (main_embed,), (None,)))
-        else:
-            return await msg.remove_reaction(member=bot.user, emoji=emotes["back"])
+            return asyncio.ensure_future(emote_toggle(msg, emotes["back"], main_embed,
+                                                      lambda _: (main_embed,), (None,)))
     except asyncio.TimeoutError:
-        logging.info(f'Reactable status expired on message {msg.id} for emote {emote}.')
-        await msg.remove_reaction(emote, bot.user)
+        try:
+            logging.info(f'Reactable status expired on message {msg.id} for emote {emote}.')
+            await msg.remove_reaction(emote, bot.user)
+        except discord.errors.NotFound:
+            pass
 
 
 async def search(ctx, search_terms) -> str:
@@ -189,8 +194,10 @@ async def img(ctx, *args):
 
 @bot.command(aliases=['v', 'sound', 's'], help="**Special parameters**:\n\nNone.")
 async def voice(ctx, *args):
-    msg = await ctx.send(embed=await _card_command_embed(ctx, *(tuple(args) + (_voice_embed,))))
+    embed, card_name = await _card_command_embed(ctx, *(tuple(args) + (_voice_embed,)))
+    msg = await ctx.send(embed=embed)
     asyncio.ensure_future(emote_toggle(msg, emotes["trash"], discord.Embed(), lambda _: (None,), (None,)))
+    asyncio.ensure_future(emote_toggle(msg, emotes["en"], embed, _voice_embed, (card_name, 'en')))
 
 
 @bot.command(help="**Special parameters**:\n\n"
