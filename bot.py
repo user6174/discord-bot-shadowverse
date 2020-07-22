@@ -1,8 +1,9 @@
 import asyncio
 
 from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
+
 from Embeds import *
-from Embeds import _help_embed, _help_command_embed, _img_embed, _card_info_embed, _voice_embed
+from Embeds import _card_info_embed, _help_command_embed, _help_embed, _img_embed, _async_voice_embed
 from Jcg_utils import *
 import pyshorteners
 
@@ -67,7 +68,10 @@ async def emote_toggle(msg, emote, main_embed, embed_maker, embed_maker_args):
                                             timeout=REACTIONS_COMMANDS_TIMEOUT)
         logging.info(f'{user} pressed emote {emote} on message {msg.id}, '
                      f'requesting {embed_maker.__name__}{embed_maker_args}.')
-        new_embed = embed_maker(*embed_maker_args)[0]
+        try:
+            new_embed = (await embed_maker(*embed_maker_args))[0]
+        except TypeError:
+            new_embed = embed_maker(*embed_maker_args)[0]
         if new_embed is None:  # for trash emote
             return await msg.delete()
         await msg.remove_reaction(member=user, emoji=reaction)
@@ -84,7 +88,7 @@ async def emote_toggle(msg, emote, main_embed, embed_maker, embed_maker_args):
             pass
 
 
-async def search(ctx, search_terms) -> str:
+async def search(ctx, search_terms):
     logging.info(f'Trying a card search with search terms "{search_terms}" requested by {ctx.message.author}...')
     if search_terms[0] == bot.command_prefix:
         logging.info("\tSearch by name requested...")
@@ -149,7 +153,8 @@ async def help(ctx):
     msg = await ctx.send(embed=embed)
     asyncio.ensure_future(emote_toggle(msg, emotes["trash"], discord.Embed(), lambda _: (None,), (None,)))
     for command in bot.commands:
-        asyncio.ensure_future(emote_toggle(msg, emotes[str(command)[0].upper()], embed, _help_command_embed, (command,)))
+        asyncio.ensure_future(
+            emote_toggle(msg, emotes[str(command)[0].upper()], embed, _help_command_embed, (command,)))
 
 
 @bot.command(help=
@@ -195,10 +200,10 @@ async def img(ctx, *args):
 
 @bot.command(aliases=['v', 'sound', 's'], help="**Special parameters**:\n\nNone.")
 async def voice(ctx, *args):
-    embed, card_name = await _card_command_embed(ctx, *(tuple(args) + (_voice_embed,)))
+    embed, card_name = await _async_voice_embed(await search(ctx, ' '.join(args)))
     msg = await ctx.send(embed=embed)
     asyncio.ensure_future(emote_toggle(msg, emotes["trash"], discord.Embed(), lambda _: (None,), (None,)))
-    asyncio.ensure_future(emote_toggle(msg, emotes["en"], embed, _voice_embed, (card_name, 'en')))
+    asyncio.ensure_future(emote_toggle(msg, emotes["en"], embed, _async_voice_embed, (card_name, 'en')))
 
 
 @bot.command(help="**Special parameters**:\n\n"
@@ -242,6 +247,7 @@ async def jcg(ctx, format_='rot'):
         craft_distribution += f'**{craft}** {craft_names[idx + 1]}\n'
     embed.add_field(name='**Class distribution**:', value=craft_distribution)
     await msg.edit(embed=embed)
-    asyncio.ensure_future(emote_toggle(msg, True, emotes["trash"], lambda _: (None,), (None,)))
+    asyncio.ensure_future(emote_toggle(msg, emotes["trash"], discord.Embed(), lambda _: (None,), (None,)))
+
 
 bot.run(token)

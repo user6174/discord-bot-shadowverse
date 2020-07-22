@@ -1,8 +1,8 @@
 import sys
 import logging
 import discord  # https://discordpy.readthedocs.io/en/latest/api.html
-import selenium
-from selenium.webdriver.chrome.options import Options
+from requests_html import AsyncHTMLSession
+
 from Pool import *
 
 root = logging.getLogger()
@@ -95,18 +95,16 @@ def _img_embed(card_name, evo=False, alt=None):
     return embed, card_name, evo, alt
 
 
-def _voice_embed(card, language='jp'):
+async def _async_voice_embed(card, language='jp'):
+    session = AsyncHTMLSession()
     embed = discord.Embed(title=f'{emotes[language]} {card}')
-    options = Options()
-    options.add_argument("--headless")
-    driver = selenium.webdriver.Chrome(options=options)
-    driver.get(f'https://svgdb.me/cards/{pool.p[card]["id_"]}')
-    table = driver.find_element_by_xpath("//table")
-    game_actions = [action.text for action in table.find_elements_by_xpath("//td") if action.text != ""]
-    mp3s = [mp3.get_attribute('src') for mp3 in table.find_elements_by_xpath("//audio")
-            if language in mp3.get_attribute('src')]
-    for action, mp3 in zip(game_actions, mp3s):
-        embed.add_field(name='\u200b', value=f'[{action}]({mp3})', inline=False)
-    driver.close()
-    print(f'returning {card}, {embed}')
+    r = await session.get(f'https://svgdb.me/cards/{pool.p[card]["id_"]}')
+    await r.html.arender()
+    mp3s = r.html.find('tbody')[0]
+    mp3s = mp3s.find('tr')
+    for mp3 in mp3s:
+        content = mp3.find('td')
+        action = content[0].text
+        va = content[1 if language == 'jp' else 2].find('audio')[0].attrs["src"]
+        embed.add_field(name='\u200b', value=f'**[{action}]({va})**', inline=False)
     return embed, card
