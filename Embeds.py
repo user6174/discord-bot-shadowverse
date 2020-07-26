@@ -15,8 +15,8 @@ root.addHandler(handler)
 pool = Pool()
 emotes = {0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣", 6: "6️⃣", 7: "7️⃣",
           8: "8️⃣", 9: "9️⃣", 10: "🇦", 11: "🇧", 12: "🇨", 13: "🇩", 14: "🇪", 15: "🇫",
-          "E": "🇪", "B": "🇧", "J": "🇯", "H": "🇭", "F": "🇫", "I": "🇮", "V": "🇻",
-          "trash": "🗑",  "img": "🖼️", "back": "⬅️", "down": "⬇️",
+          "E": "🇪", "B": "🇧", "J": "🇯", "H": "🇭", "F": "🇫", "I": "🇮", "R": "🇷", "V": "🇻",
+          "trash": "🗑", "img": "🖼️", "back": "⬅️", "down": "⬇️",
           "en": "🇬🇧", "jp": "🇯🇵"}
 
 
@@ -72,13 +72,13 @@ def _help_command_embed(command):
 
 def _help_embed(bot):
     embed = discord.Embed()
-    val = '\n'.join(f'{emotes[str(command)[0].upper()]} {bot.command_prefix}{str(command)}' for command in bot.commands)
+    val = '\n'.join(f'{emotes[str(command)[0].upper()]} {str(command)} [*{" ,".join(command.aliases)}*]' for command in bot.commands)
     embed.add_field(name="Available commands:\n\u200b", value=val, inline=False)
     embed.add_field(name="General card search usage:\n\u200b", value=
     f'\n• `{bot.command_prefix}<COMMAND> <CARD ATTRIBUTES> <OPTIONAL PARAMETERS>`:\n'
-    "The search terms are matched to every card attribute, and minor typos are accepted.\n"
+    "The search terms are matched to **every card attribute**, and minor typos are accepted.\n"
     f'• `{bot.command_prefix}<COMMAND> {bot.command_prefix}<CARD NAME> <OPTIONAL PARAMETERS>`:\n'
-    "The search terms are matched to the card name only, typos aren't allowed.\n"
+    "The search terms are matched to **the card name only**, typos aren't allowed.\n"
     "\nExamples:\n\n"
     f'• `{bot.command_prefix}img fighter` would return a list of cards whose name contains \"Fighter\",'
     f' or which make `Fighter` tokens.\n'

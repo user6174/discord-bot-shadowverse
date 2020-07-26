@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+
 import asyncio
+import time
 
 from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
 
@@ -7,8 +10,16 @@ from Embeds import _card_info_embed, _help_command_embed, _help_embed, _img_embe
 from Jcg_utils import *
 import pyshorteners
 
-# TODO think about indexing dict by ids, ready for jp ui (cv field), tidy up after embeds,
+print(sys.executable)
+print(os.path.abspath(__file__))
+print(*sys.argv)
+
+# TODO ready for jp ui (cv field)
+#  tidy up after embeds expire
 #  find a way to reuse reactions on message edit
+#  add reboot and/or clear tasks
+
+MAINTAINER_ID = 186585846906880001
 
 ########################################################################################################################
 # GLOBALS ##############################################################################################################
@@ -16,7 +27,7 @@ import pyshorteners
 
 with open("token.txt", 'r') as txt:
     token = txt.readline()
-bot = commands.Bot(command_prefix='+')
+bot = commands.Bot(command_prefix='-')
 MAX_MATCHES_DISPLAY = 15
 MAX_MATCHES_LIST = 60
 REACTIONS_COMMANDS_TIMEOUT = 120.0  # seconds
@@ -74,8 +85,11 @@ async def emote_toggle(msg, emote, main_embed, embed_maker, embed_maker_args):
             new_embed = embed_maker(*embed_maker_args)[0]
         if new_embed is None:  # for trash emote
             return await msg.delete()
-        await msg.remove_reaction(member=user, emoji=reaction)
-        await msg.remove_reaction(member=bot.user, emoji=reaction)
+        try:
+            await msg.remove_reaction(member=user, emoji=reaction)
+            await msg.remove_reaction(member=bot.user, emoji=reaction)
+        except discord.errors.Forbidden:  # on DMs
+            pass
         await msg.edit(embed=new_embed)
         if new_embed != main_embed:
             return asyncio.ensure_future(emote_toggle(msg, emotes["back"], main_embed,
@@ -157,7 +171,7 @@ async def help(ctx):
             emote_toggle(msg, emotes[str(command)[0].upper()], embed, _help_command_embed, (command,)))
 
 
-@bot.command(help=
+@bot.command(aliases=['f'], help=
              f'**Usage**:\n\n'
              f'As explained in the main menu. Additionally, a card search can be requested with this shorthand:\n'
              f'• `{bot.command_prefix}<CARD ATTRIBUTES> <OPTIONAL PARAMETERS>`:\n'
@@ -169,7 +183,10 @@ async def help(ctx):
              f'• `{bot.command_prefix}{bot.command_prefix}azazel,`\n'
              f'• `{bot.command_prefix}{bot.command_prefix}azazel`\n')
 async def find(ctx, *args):
-    embed, card, evo, img_ = await _card_command_embed(ctx, *(tuple(args) + (_card_info_embed,)))
+    try:
+        embed, card, evo, img_ = await _card_command_embed(ctx, *(tuple(args) + (_card_info_embed,)))
+    except TypeError:
+        return  # found no card
     msg = await ctx.send(embed=embed)
     asyncio.ensure_future(emote_toggle(msg, emotes["trash"], discord.Embed(), lambda _: (None,), (None,)))
     asyncio.ensure_future(
@@ -186,7 +203,7 @@ async def find(ctx, *args):
                                            (related, False, img_)))
 
 
-@bot.command(aliases=['pic', 'art'], help="**Special parameters**:\n\nNone.")
+@bot.command(aliases=['pic', 'art', 'fullpic', 'fullart'], help="**Special parameters**:\n\nNone.")
 async def img(ctx, *args):
     embed, card_name, evo, alt = await _card_command_embed(ctx, *(tuple(args) + (_img_embed,)))
     msg = await ctx.send(embed=embed)
@@ -206,11 +223,12 @@ async def voice(ctx, *args):
     asyncio.ensure_future(emote_toggle(msg, emotes["en"], embed, _async_voice_embed, (card_name, 'en')))
 
 
-@bot.command(help="**Special parameters**:\n\n"
-                  "`ul`: displays the last Unlimited JCG."
-                  "`no arguments/rot`: displays the last Rotation JCG."
+@bot.command(aliases=['j', 'tourney'], help="**Special parameters**:\n\n"
+                  "`ul`: displays the last Unlimited JCG.\n"
+                  "`no arguments/rot`: displays the last Rotation JCG.\n"
                   "\n\n**Note**:\n\n"
                   "The program may need a minute to fetch the latest JCG if it's not in the internal database yet.")
+@commands.cooldown(1, 60)
 async def jcg(ctx, format_='rot'):
     shortener = pyshorteners.Shortener()
     format_ = 'unlimited' if format_ in ('ul', 'unlimited') else 'rotation'
@@ -250,4 +268,16 @@ async def jcg(ctx, format_='rot'):
     asyncio.ensure_future(emote_toggle(msg, emotes["trash"], discord.Embed(), lambda _: (None,), (None,)))
 
 
+@bot.command(aliases=['rr', 'reboot', 'ref'], help="You can restart the bot with this if anything gets stuck.")
+@commands.check(lambda ctx: (ctx.message.author.id == MAINTAINER_ID)
+                            or ("Members" in ctx.message.author.roles))
+async def restart(ctx):
+    await ctx.send("Restarting...")
+    await bot.close()
+
+bot.remove_command('voice')  # comment out on raspberry
+
 bot.run(token)
+# restart (when rr gets called)
+time.sleep(5)
+os.execl('/usr/bin/python', os.path.abspath(__file__), *sys.argv)
