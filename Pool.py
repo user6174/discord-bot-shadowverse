@@ -5,6 +5,7 @@ from fuzzywuzzy import fuzz
 
 
 sets = {"Token": ("TK", "1970-01-01"),
+        "Promo": ("PR", "1970-01-01"),
         "Basic": ("Basic", "2016-06-21"),
         "Standard Card Pack": ("STD", "2016-06-21"),
         "Darkness Evolved": ("DE", "2016-09-29"),
@@ -32,7 +33,14 @@ def full_pic(id_, evo):
 class Pool:
     def __init__(self):
         with open(f'{os.getcwd()}/shadowverse-json/en/all.json', 'r') as f:
-            self.p = json.load(f)
+            ids = json.load(f)
+        self.p = {}
+        for card in ids:
+            name = ids[card]["name_"]
+            if name not in self.p or int(card) < int(self.p[name]["id_"]):
+                self.p[name] = ids[card]
+                self.p[name]["tokens_"] = [ids[str(tk)]["name_"] for tk in self.p[name]["tokens_"]]
+        self.ids = ids  # for info about alt arts
 
     def searchable(self, name):
         c = self.p[name]
@@ -81,5 +89,6 @@ def module_test():
     print(p.searchable("Hulking Dragonewt"))
     print(p.search_by_name("golem legend fortune") + p.search_by_attributes("golem legend fortune"))
     print(p.search_by_name("milteo shadow legend") + p.search_by_attributes("milteo shadow legend"))
+
 
 # module_test()

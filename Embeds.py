@@ -36,13 +36,15 @@ def _card_info_embed(card, evo=False, img_=False):
                     value=
                     f'**Rarity**: {card["rarity_"]}\n'
                     f'**Class**: {card["craft_"]}\n'
-                    f'**Expansion**:\n{card["expansion_"]}',
+                    f'**Expansion**: {card["expansion_"]}\n' +
+                    (f'**Alts**: {", ".join([pool.ids[str(alt)]["expansion_"] for alt in card["alts_"]])}'
+                     if card["alts_"] else ''),
                     inline=True)
     if img_:
         embed.set_image(url=pool.pic(card["name_"], evo))
     # second row
     tokens = ""
-    for idx, name in enumerate(tuple(dict.fromkeys(card["tokens_"]))):
+    for idx, name in enumerate(card["tokens_"]):
         tokens += f'{emotes[idx]} {name}\n'
     if tokens != "":
         embed.add_field(name="Related cards:", value=tokens, inline=True)
@@ -91,7 +93,7 @@ def _help_embed(bot):
 
 def _img_embed(card_name, evo=False, alt=None):
     id_ = pool.p[card_name]["id_"] if alt is None else pool.p[card_name]["alts_"][alt]
-    embed = discord.Embed().set_image(url=full_pic(id_, evo))
+    embed = discord.Embed(title=card_name + " Evolved" * evo).set_footer(text=f'Alternative art #{alt}' if alt is not None else '\u200b').set_image(url=full_pic(id_, evo))
     return embed, card_name, evo, alt
 
 

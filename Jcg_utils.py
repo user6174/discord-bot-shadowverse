@@ -16,10 +16,19 @@ def scrape_tournament(url, format_):
     page = req.get(url)
     soup = BeautifulSoup(page.content, 'html.parser')
     name = f'{" ".join(word.text for word in soup.find_all("span", class_="nobr"))}.json'
+    with open(f'{format_}.json', 'r') as f:
+        try:
+            tmp = json.load(f)
+            if tmp["name"] == name:
+                return None
+            else:
+                print(tmp["name"])
+                print(name)
+        except json.decoder.JSONDecodeError:
+            pass
     soup = soup.find("div", class_="tourview-wrap")
     if soup is None:  # link didn't exist, redirected to main page
-        return
-    file_path = f'{os.getcwd()}/jcg/{format_}/{name}'
+        return None
     if name in os.listdir(f'{os.getcwd()}/jcg/rotation/') + \
                 os.listdir(f'{os.getcwd()}/jcg/unlimited/') + \
                 os.listdir(f'{os.getcwd()}/jcg/other/') or \
@@ -30,6 +39,7 @@ def scrape_tournament(url, format_):
     print(name)
     rounds = len(soup.find_all("ul", class_="matches")) + 1
     to_json = {pos: [] for pos in [2**round_ for round_ in range(rounds)]}
+    to_json["name"] = name
     to_json["crafts"] = [0] * 8
     to_json["code"] = url.split('/')[-1]
     for round_ in range(1, rounds):
@@ -56,9 +66,14 @@ def scrape_tournament(url, format_):
                 to_json[1].append(player)
                 for craft in crafts:
                     to_json["crafts"][craft] += 1
+    return to_json
+
+
+def save_into_archive(url, format_):
+    to_json = scrape_tournament(url, format_)
+    file_path = f'{os.getcwd()}/jcg/{format_}/{to_json["name"]}'
     with open(file_path, 'w+') as f:
         json.dump(to_json, f)
-    return name
 
 
 def build_player(match_soup, player_idx):
@@ -84,7 +99,7 @@ def scrape_jcg(format_, page=0, once=False):
             print(url)
             if once:
                 return scrape_tournament(url, format_)
-            scrape_tournament(url, format_)
+            save_into_archive(url, format_)
 
 
 def scrape_everything(format_):
@@ -97,23 +112,7 @@ def scrape_pre_split():
     for code in range(750):
         url = f'https://sv.j-cg.com/compe/view/tour/{code}'
         print(url)
-        scrape_tournament(url, 'other')
-
-
-# format_ = "rotation"
-# name = "JCG Shadowverse Open 14th Season Vol.8 7月12日 ローテーション大会 決勝トーナメント.json"
-# file_path = f'{os.getcwd()}/jcg/{format_}/{name}'
-# shortener = pyshorteners.Shortener()
-# with open(file_path, 'r') as f:
-#     tourney = json.load(f)
-# for top in ['1', '2', '4']:
-#     craft_names = ("", "Forestcraft", "Swordcraft", "Runecraft", "Dragoncraft",
-#                    "Shadowcraft", "Bloodcraft", "Havencraft", "Portalcraft")
-#     decks = ["/".join(f'[{craft_names[int(deck[59])]}]({shortener.tinyurl.short(deck)})' for deck in player["decks"]) for
-#              player in tourney[top]]
-#     line = [f'{player["player"]}: {decks[idx]}\n' for idx, player in enumerate(tourney[top])]
-#     print(", ".join(line))
-
+        save_into_archive(url, 'other')
 
 
 # scrape_everything('rotation')
