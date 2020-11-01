@@ -2,6 +2,7 @@ import json
 import aiohttp
 import async_timeout
 import pyshorteners
+import requests
 from bs4 import BeautifulSoup
 
 
@@ -19,7 +20,11 @@ def build_player(shortener, match_soup, player_idx):
     for deck in side.find_all('a', target="_svp"):
         player_data["decks"].append(
             f'https://shadowverse-portal.com/deck/{deck["href"].split("hash=")[1].split("&lang=en")[0]}?lang=en')
-        player_data["tinydecks"].append(shortener.tinyurl.short(player_data["decks"][-1]))
+        while len(player_data["tinydecks"]) < len(player_data["decks"]):
+            try:
+                player_data["tinydecks"].append(shortener.tinyurl.short(player_data["decks"][-1]))
+            except requests.exceptions.ReadTimeout:
+                continue
         player_data["crafts"].append(int(player_data["decks"][-1][38]))
     return player_data
 
@@ -29,12 +34,13 @@ async def scrape_tournament(session, url, format_) -> dict or None:
     soup = await soup_from_url(session, url)
     name = f'{" ".join(word.text for word in soup.find_all("span", class_="nobr"))}'
     name = name.split('月')[0] + '/' + name.split('月')[1].split('日')[0] + '/2020'
+    code = url.split('/')[-1]
     print(name)
     try:
         with open(f'{format_}.json', 'r') as f:
             try:
                 tmp = json.load(f)
-                if tmp["name"] == name:
+                if tmp["code"] == code:
                     print(f'already scraped, skipping')
                     return None
                 else:
@@ -48,7 +54,7 @@ async def scrape_tournament(session, url, format_) -> dict or None:
     ret = {pos: [] for pos in [2 ** round_ for round_ in range(rounds)]}
     ret["name"] = name
     ret["crafts"] = [0] * 8
-    ret["code"] = url.split('/')[-1]
+    ret["code"] = code
     for round_ in range(1, rounds):
         matches = soup.find('div', class_=f'round{round_}')
         print(f'Scraping round {round_}...')
@@ -92,7 +98,7 @@ async def scrape_jcg(format_):
                 return await scrape_tournament(session, url, format_)
 
 
-async def update_jcg():
+async def update_jcgs():
     last = await scrape_jcg('rotation')
     if last is not None:
         with open('rotation.json', 'w+') as f:
