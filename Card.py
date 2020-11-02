@@ -26,7 +26,7 @@ EXPANSIONS = {"Token": ("TK", "1970-01-01"),
 
 
 class Card:
-    def __init__(self, card_dict):
+    def __init__(self, card_dict: dict):
         self.name_ = ""
         self.id_ = 0
         self.pp_ = 0
@@ -46,22 +46,24 @@ class Card:
         self.evoFlair_ = ""
         self.alts_ = []
         self.tokens_ = []
-        for key in card_dict.keys():
-            self.__setattr__(key, card_dict[key])
+        for k, v in card_dict.items():
+            self.__setattr__(k, v)
 
-    def searchable(self):
+    def searchable(self) -> str:
+        # Used when searching a card's attribute, and thus lacking the card's name.
         return f'{self.pp_}pp {self.rarity_} {self.craft_} {self.trait_} {self.type_} {self.expansion_} ' \
                f'{EXPANSIONS[self.expansion_][0]} {self.baseAtk_}/{self.baseDef_} ' \
                f'{"rotation" if self.rotation_ else "unlimited"} {self.baseEffect_} {self.evoEffect_}'.lower()
 
-    def pic(self, framed=False, evo=False):
-        if framed:
+    def pic(self, frame=False, evo=False) -> str:
+        if frame:
             return f'{SITE}/assets/cards/{"E" if evo else "C"}_{self.id_}.png'
         else:
-            return f'{SITE}/assets/fullart/{self.id_}{(int(evo))}.png'
+            return f'{SITE}/assets/fullart/{self.id_}{int(evo)}.png'
 
 
 def card_module_test():
+    # Make sure that shadowverse-json is in, or is symlinked to, discord-bot-shadowverse.
     with open(f'{os.getcwd()}/shadowverse-json/en/all.json', 'r') as f:
         data = json.load(f)
     c = Card(data['112011030'])
@@ -69,6 +71,6 @@ def card_module_test():
         print(f'self.{k} -> {v}')
     print(c.searchable())
     print(c.pic())
-    print(c.pic(framed=True, evo=True))
+    print(c.pic(frame=True, evo=c.type_ == 'Follower'))
 
 # card_module_test()

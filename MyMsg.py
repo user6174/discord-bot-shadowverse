@@ -1,33 +1,35 @@
-import json
 import sys
+import json
+import discord
 import asyncio
 import logging
-from abc import abstractmethod
-
-import discord
-import natsort
+from typing import Optional, Union, List
+from natsort import natsorted
 from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
 from emoji import emojize, demojize
 
 from Jcg_utils import update_jcgs
+
 from Library import Library
+
+LIB = Library()
 
 # Logging is setup to write to .../current_directory/bot.log and to stdout.
 style = logging.Formatter('%(asctime)s [%(funcName)-19s]  %(message)s')
 log = logging.getLogger('discord')
 log.setLevel(logging.INFO)
+
 to_log_file = logging.FileHandler(filename='bot.log', encoding='utf-8', mode='w')
 to_log_file.setFormatter(style)
 log.addHandler(to_log_file)
+
 to_stdout = logging.StreamHandler(sys.stdout)
 to_stdout.setFormatter(style)
 log.addHandler(to_stdout)
 
-LIB = Library()
 MAX_WATCHED_MSGS = 10
 REACTIONS_TIMEOUT = 120  # s
-PREFIX = '!'
-bot = commands.Bot(command_prefix=PREFIX)
+bot = commands.Bot(command_prefix='!')
 
 # markup: colorizes text in discord formatting (___ is the placeholder for the text)
 # hex: color in hex
@@ -45,33 +47,31 @@ CRAFTS = {
 }
 
 
-def plot_craft(craft_name, craft_val):
-    return f'```{CRAFTS[craft_name]["markup"].replace("___", craft_name)}{" " * craft_val}{craft_val}```'
-
-
-def hyperlink(txt, link) -> str:
+def hyperlink(txt: str, link: str) -> str:
     return f'[**{txt}**]({link})'
 
 
-def int_to_emoji(n):
+def int_to_emoji(n: Union[int, chr]) -> str:
     return f':keycap_{n}:'
 
 
-def chr_to_emoji(c):
+def chr_to_emoji(c: chr) -> str:
     return f':regional_indicator_symbol_letter_{c}:'
 
 
-def int_emojis(l):
+def int_emojis(l: iter) -> iter:
+    """:param l: list of emoji strings in the format :emoji_name:"""
     return filter(lambda e: 'keycap' in e, l)
 
 
-def chr_emojis(l):
+def chr_emojis(l: iter) -> iter:
+    """:param l: list of emoji strings in the format :emoji_name:"""
     return filter(lambda e: 'regional' in e, l)
 
 
-def local_scope_str(obj) -> str:
+def local_scope_str(obj: object) -> str:
     """
-    :returns the current couples field/value belonging to the input object, for logging purposes.
+    Returns the current couples field/value belonging to the input object, for logging purposes.
     """
     ret = '('
     for k, v in obj.__dict__.items():
@@ -87,42 +87,37 @@ class MyMsg(object):
     """
     __all__ = {}  # A cache of the last MAX_WATCHED_MSGS messages.
 
-    def __init__(self, ctx=None):
-        # Empty initialization of the typical variables used by the bot.
-        self.ctx: discord.ext.commands.Context or None = ctx
-        self.embed: discord.embeds.Embed or None = None
-        self.msg: discord.message.Message or None = None
+    def __init__(self, ctx: Optional[discord.ext.commands.Context] = None):
+        self.ctx = ctx
+        self.embed: Optional[discord.embeds.Embed] = None
+        self.msg: Optional[discord.message.Message] = None
         # A list of the emojis that, if added to the message as a reaction, cause the class to modify the message.
         self.monitored_emojis = {':wastebasket:'}
         log.info(local_scope_str(self))
 
     @classmethod
-    def from_dict(cls, dict_):
+    def from_dict(cls, fields: dict) -> 'MyMsg':
         """
-        A constructor that initializes any subclass of MyMsg with the fields of another instance of that same class.
-        Used to bypass the default begin-of-existence constructors,
-        so that the embed of already existing messages can be immediately edited.
-        :param dict_: obj.__dict__, where obj is the MyMsg object whose embed needs to be edited.
+        An alternative constructor instantiating a cls instance (right now a MyMsg object, but critically,
+        an instance of any MyMsg subclass that this method is called onto) with the input fields.
+        This is mainly used as a quick lane to edit the fields of an existing (read: whose msg field has already been
+        dispatched by the bot) MyMsg subclass instance, with the goal of editing its embed.
+        It can also act as a constructor, if one wishes to create a MyMsg message with minimal functionality
+        (one that can be deleted by pressing :wastebasket:).
+        The base arguments in this case are {"ctx": ctx, "embed": embed}.
         """
         obj = MyMsg()
-        obj.__class__ = cls  # Preparing an empty instance of the target class.
-        for name, value in dict_.items():
+        obj.__class__ = cls  # Preparing an empty instance of the target class by "casting" it over MyMsg.
+        for name, value in fields.items():
             obj.__setattr__(name, value)
         log.info(local_scope_str(obj))
         return obj
 
-    @abstractmethod
     def edit_embed(self):
+        """
+        The embed that gets edited in the subclasses is either a template created in their init, or a from_dict field.
+        """
         return
-
-    def dress(self):
-        """
-        Reacts to the message with the emojis in monitored_emojis.
-        """
-        emojis = natsort.natsorted(self.monitored_emojis)
-        log.info(emojis)
-        for emoji in emojis:
-            asyncio.create_task(self.msg.add_reaction(emojize(emoji)))
 
     async def dispatch(self):
         """
@@ -136,6 +131,15 @@ class MyMsg(object):
             oldest_msg = min(MyMsg.__all__.keys())  # msg.id is its timestamp
             await MyMsg.__all__[oldest_msg].abandon()
 
+    def dress(self):
+        """
+        Reacts to the message with the emojis in monitored_emojis.
+        """
+        emojis = natsorted(self.monitored_emojis)
+        log.info(emojis)
+        for emoji in emojis:
+            asyncio.create_task(self.msg.add_reaction(emojize(emoji)))
+
     async def abandon(self, delete_msg=False):
         """
         An abandoned message gets dropped from the internal cache and becomes inert to reactions.
@@ -148,9 +152,8 @@ class MyMsg(object):
     @classmethod
     def on_emoji_toggle(cls, msg_id, emoji, user):
         """
-        Modifies the embed in the internal cache with matching id according to the toggled emoji.
-        The user reaction using the input emoji is cleared for convenience, making it easier for them to request
-        corresponding command again.
+        If the message identified by msg_id is in the internal cache, edits its embed as indicated by the toggled emoji.
+        The emoji user reaction is cleared for convenience, making it easier for them to toggle it again.
         """
         try:
             obj = cls.__all__[msg_id]
@@ -158,6 +161,7 @@ class MyMsg(object):
             log.info(f'msg {msg_id} has already been deleted')
             return
         new_args = obj.edit_args(emoji)
+        log.info(new_args)
         if new_args is None:  # The trash emoji was pressed.
             asyncio.create_task(obj.abandon(delete_msg=True))
             return
@@ -166,60 +170,78 @@ class MyMsg(object):
         asyncio.create_task(obj.msg.edit(embed=new_obj.embed))
         asyncio.create_task(obj.msg.remove_reaction(emojize(emoji), user))
 
-    def edit_args(self, emoji):
+    def edit_args(self, emoji) -> Optional[dict]:
         """
-        In the subclasses' implementations this method will manipulate the __dict__ of a message object according to the
-        emote pressed. If an emote corresponds to some special instruction that goes beyond the scope of modifying the
-        object's embed, side effects are also executed here.
-        Returning None will delete the message, and returning an unmodified __dict__ won't edit it.
+        Manipulates the __dict__ of a message instance according to the emote pressed.
+        If an emote corresponds to some special instruction going beyond the scope of modifying the object's embed,
+        side effects are also executed here.
+        Returning None will delete the message, and if there's no edits to make, self.__dict__ is returned.
         """
+        log.info('')
         if emoji == ':wastebasket:':
             return
         return self.__dict__
 
 
-card_search_doc = """
-**SYNOPSIS FOR CARD COMMANDS**
+# HELP #################################################################################################################
+
+card_search_doc = """**SYNOPSIS FOR CARD COMMANDS**
 `{pfx}<CARD_COMMAND> <CARD_NAME> <CARD_COMMAND_FLAGS>`
 `{pfx}<CARD_COMMAND> <CARD_NAME> -l <CARD_COMMAND_FLAGS>`
 `{pfx}<CARD_COMMAND> <CARD_ATTRIBUTES> -a <CARD_COMMAND_FLAGS>`
 
 **DESCRIPTION**
-The default search tries to present the cards you're most likely to want while being exhaustive, but should it happen that this results in too narrow or too wide a list of matches, you can make use of **-l** and **-a**. Case insensitive, minor typos are allowed only when looking up a card name.
+Case insensitive, minor typos are allowed only when looking up a card name. The default search tries to present the cards you're most likely to want while being exhaustive, but should it happen that this results in too narrow or too wide a list of matches, you can make use of **-l** and **-a**. 
 
 **OPTIONS**
 **-l**, **--lax**
 Relaxes the search from returning the card name exactly matching with the search terms to the cards containing the search terms in the name.
 **-a**, **--attrs**
-Matches the search terms only with the card's attributes, such as attack, effect and expansion (expansion shorthands are supported).
+Matches the search terms to the card's attributes, such as attack, effect and expansion (expansion shorthands are supported).
 
-**EXAMPLES**
-"""
-print(card_search_doc)
+**EXAMPLES** (using the {pfx}info command)
+`{pfx}pluto -a` -> `Pact with the Nethergod`
+`{pfx}owlcat --lax` -> `Owlcat, Peckish Owlcat`
+`{pfx}abominatioQ` -> `Abomination Awakened`
+""".format(pfx=bot.command_prefix)
+NO_HELP = '~'
+
+
+def has_help(cmd) -> bool:
+    return bot.get_command(cmd).help != NO_HELP
 
 
 class HelpMsg(MyMsg):
+    """
+    This subclass manages the help pages of the commands.
+    """
+
     def __init__(self, ctx, command):
-        super().__init__(ctx=ctx)
+        super().__init__(ctx)
         self.command = command
-        for cmd in bot.commands:
-            initial_emoji = chr_to_emoji(str(cmd)[0])
-            self.monitored_emojis.add(initial_emoji)
+        for cmd in (str(c) for c in bot.commands):
+            if has_help(cmd):
+                self.monitored_emojis.add(chr_to_emoji(cmd[0]))
         self.monitored_emojis.add(':open_book:')
         self.edit_embed()
-        log.info('went in edit embed')
         log.info(local_scope_str(self))
 
     def edit_embed(self):
-        self.embed = discord.Embed(title=str(self.command)).add_field(name='\u200b', value=self.command.help)
+        log.info('')
+        self.embed = discord.Embed(title=str(self.command)) \
+            .add_field(name=f'{emojize(":open_book:")} - card search help page\n'
+                            f'{emojize(chr_to_emoji("h"))} - main help menu\n\u200b',
+                       value=self.command.help)
         self.embed.set_footer(
             icon_url="https://panels-images.twitch.tv/panel-126362130-image-d5e33b7d-d6ff-418d-9ec8-d83c2d49739e",
             text="Contact nyx#6294 for bug reports and feedback.")
 
     def edit_args(self, emoji):
+        log.info('')
         if emoji == ':open_book:':
+            # An example of from_dict used as a constructor.
             asyncio.create_task(MyMsg().from_dict({"ctx": self.ctx, "embed": discord.Embed(title='help')
-                                                   .add_field(name='\u200b', value=card_search_doc)}).dispatch())
+                                                  .add_field(name='\u200b', value=card_search_doc)}).dispatch())
             return self.__dict__
         if emoji in chr_emojis(self.monitored_emojis):
             new_args = self.__dict__
@@ -247,7 +269,11 @@ class MatchesMsg(MyMsg):
             self.embed.add_field(name=emojize(int_to_emoji(i)), value=LIB.ids[match].name_)
         log.info(f'{self.embed.fields}')
 
-    async def wait_for_toggle(self):
+    async def wait_for_toggle(self) -> List[str]:
+        """
+        Since MatchesMsg needs to provide a card name to the search function in bot.py, the synchronous reactions
+        infrastructure provided by MyMsg can't be used to answer to the user selecting a card.
+        """
         try:
             rctn, _ = await bot.wait_for("reaction_add", check=lambda r, u: demojize(r.emoji) in
                                                                             int_emojis(self.monitored_emojis) and
@@ -256,16 +282,27 @@ class MatchesMsg(MyMsg):
                                          timeout=REACTIONS_TIMEOUT)
             return [self.matches[int(demojize(rctn.emoji)[-2])]]
         except TimeoutError:
+            log.info(f'timeout {self.msg.id}')
             return []
 
     def edit_args(self, emoji):
         return  # We want MatchesMsg to be deleted on any reaction press.
 
 
+# JCG ##################################################################################################################
+
+def plot_craft(craft_name, craft_val):
+    """
+    Formats the craft name so that it gets colored by discord's markup text, and creates a row of a horizontal histogram
+    showing that craft's representation in the tournament.
+    """
+    return f'```{CRAFTS[craft_name]["markup"].replace("___", craft_name)}{" " * craft_val}{craft_val}```'
+
+
 class JcgMsg(MyMsg):
-    def __init__(self, ctx, mode='rot'):
+    def __init__(self, ctx, mode='rotation'):
         super().__init__(ctx)
-        self.mode = 'unlimited' if mode.lower() in ('unlimited', 'ul') else 'rotation'
+        self.mode = mode
         self.edit_embed()
         self.monitored_emojis.add(':counterclockwise_arrows_button:')
         log.info(local_scope_str(self))
@@ -274,8 +311,8 @@ class JcgMsg(MyMsg):
         try:
             with open(f'{self.mode}.json', 'r') as f_:
                 tour = json.load(f_)
-        except FileNotFoundError:
-            asyncio.create_task(self.wait_for_scraper())
+        except (FileNotFoundError, json.JSONDecodeError):
+            asyncio.create_task(self.wait_for_scraper(error=True))
             return
         self.embed = discord.Embed(title=f'#{tour["code"]} - {tour["name"]}')
         self.embed.url = f'https://sv.j-cg.com/compe/view/tour/{tour["code"]}'
@@ -287,26 +324,32 @@ class JcgMsg(MyMsg):
                     player_decks += f'{hyperlink(list(CRAFTS)[craft], deck_link)} /'
                 player_str = f'{player_decks[:-2]} - {player["player"]}\n'
                 top_str += player_str
-            print(top_str)
             self.embed.add_field(name=f'**TOP {top}**', value=top_str, inline=False)
         crafts_distribution = ''
         for i, craft in enumerate(tour["crafts"], start=1):
             crafts_distribution += plot_craft(list(CRAFTS)[i], craft)
         self.embed.add_field(name=f'**Class Distribution**',
                              value=crafts_distribution)
-        log.info(local_scope_str(self))
+        log.info(self.embed.fields)
 
     def edit_args(self, emoji):
+        log.info('')
         if emoji == ':counterclockwise_arrows_button:':
-            # side effects
             asyncio.create_task(self.wait_for_scraper())
+            # One can't wait for a subroutine in a synchronous function, and multiple update calls wouldn't make sense,
+            # so the emoji is disabled.
             asyncio.create_task(self.msg.clear_reaction(emojize(':counterclockwise_arrows_button:')))
             self.monitored_emojis.remove(':counterclockwise_arrows_button:')
             return self.__dict__
         return super().edit_args(emoji)
 
-    async def wait_for_scraper(self):
-        msg = await self.ctx.send(embed=discord.Embed(title='Fetching newer JCGs if present, please wait...'))
+    async def wait_for_scraper(self, error=False):
+        log.info(f'error={error}')
+        if error:
+            msg = await self.ctx.send(embed=discord.Embed(title='There was a problem reading the tournament data. '
+                                                                'Trying to fetch it again, please wait...'))
+        else:
+            msg = await self.ctx.send(embed=discord.Embed(title='Fetching newer JCGs if present, please wait...'))
         await update_jcgs()
         await msg.delete()
         await MyMsg().from_dict({"ctx": self.ctx, "embed": discord.Embed(title='...update finished.')}).dispatch()

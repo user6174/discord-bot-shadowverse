@@ -12,7 +12,8 @@ from Card import EXPANSIONS
 from discord.ext import commands
 from emoji import demojize, emojize
 from CardMsg import PicMsg, InfoMsg, VoiceMsg
-from MyMsg import chr_to_emoji, REACTIONS_TIMEOUT, LIB, log, bot, hyperlink, MyMsg, MatchesMsg, JcgMsg, HelpMsg
+from MyMsg import chr_to_emoji, NO_HELP, LIB, log, bot, hyperlink, has_help, MyMsg, MatchesMsg, JcgMsg, HelpMsg, \
+    int_to_emoji
 
 print(sys.executable)
 print(os.path.abspath(__file__))
@@ -71,28 +72,30 @@ async def card_commands_template(ctx, msg_maker, *args):
 
 # COMMANDS #############################################################################################################
 
-@bot.command(help='info')
+@bot.command(help=NO_HELP)
 async def info(ctx, *args):
     await card_commands_template(ctx, InfoMsg, *args)
 
 
-@bot.command(help='pic')
+@bot.command(help=NO_HELP)
 async def pic(ctx, *args):
     await card_commands_template(ctx, PicMsg, *args)
 
 
-@bot.command(help='voice')
+@bot.command(help=NO_HELP)
 async def voice(ctx, *args):
     await card_commands_template(ctx, VoiceMsg, *args)
 
 
 @bot.command(help='sets')
-async def sets(ctx):
+async def sets(ctx, *args):
+    start_idx = -5 * ('-r' in args or '--rotation' in args)
     embed = discord.Embed()
     embed_val = ''
-    for i, expac in enumerate(filter(lambda xpc: xpc not in ("Token", "Promo"), EXPANSIONS), start=1):
+    for i, expac in enumerate(list(filter(lambda xpc: xpc not in ("Token", "Promo"), EXPANSIONS))[start_idx:], start=1):
         # -7 separates the crafts in Rotation, -(5 of them + 2 of the excluded above)
-        embed_val += f'{EXPANSIONS[expac][1]} **{expac}**\n' + ('\n' if i == len(EXPANSIONS) - 7 else '')
+        embed_val += f'{EXPANSIONS[expac][1]} **{expac}**\n'
+        # ('\n' if i == len(EXPANSIONS) - 7 else '')
     embed.add_field(name='\u200b', value=embed_val)
     # MyMsg is usually meant as an abstract superclass, but thanks to from_dict it can instantiate what would be an
     # anonymous subclass of itself (similar to what a lambda is for a function).
@@ -100,7 +103,7 @@ async def sets(ctx):
 
 
 @bot.command(help='jcg')
-async def jcg(ctx, mode='rot'):
+async def jcg(ctx, mode='rotation'):
     await JcgMsg(ctx, mode).dispatch()
 
 
@@ -173,24 +176,26 @@ async def on_message(message):
 fmt_commands_list = ''
 command_names = natsorted(str(cmd) for cmd in bot.commands)
 for cmd in command_names:
-    initial_emoji = chr_to_emoji(cmd[0])
-    fmt_commands_list += f'{emojize(initial_emoji)} {cmd}\n'
+    emoji = int_to_emoji('*') if not has_help(cmd) else chr_to_emoji(cmd[0])
+    emoji = emojize(emoji)
+    fmt_commands_list += f'{emoji} {cmd}\n'
 
-help_doc = """**NOTE**: to see what card search options are available, press {book}
+help_doc = """
 **AVAILABLE COMMANDS**
 {fmt}
 **OTHER FEATURES**
 • When a {svportal_link} deck link is detected, its deck code and image are automatically posted.
-""".format(book=emojize(':open_book:'),
-           fmt=fmt_commands_list,
+""".format(fmt=fmt_commands_list,
            pfx=bot.command_prefix,
            svportal_link=hyperlink('Shadowverse Portal', 'https://shadowverse-portal.com/?lang=en'))
 
 
 @bot.remove_command('help')
-@bot.command(help=help_doc)
-async def help(ctx):
-    await HelpMsg(ctx, bot.get_command('help')).dispatch()
+@bot.command(aliases=['h'], help=help_doc)
+async def help(ctx, command='help'):
+    if not has_help(command):
+        command = 'help'
+    await HelpMsg(ctx, bot.get_command(command)).dispatch()
 
 
 # TAIL METHODS #########################################################################################################
@@ -202,6 +207,25 @@ os.execl('/usr/bin/python', os.path.abspath(__file__), *sys.argv)
 
 # TODO list
 #  start from base files and go upwards with documentation and log, also solve pycharm warnings
+#       done Card, Library, MyMsg
 #  finish help docs for commands
+#       not started, skeleton below
 #  think about additional arguments for commands, flags if needed (see card_commands_template)
 #  think about new commands
+
+# skeleton:
+"""**SYNOPSIS**
+
+**DESCRIPTION**
+
+**OPTIONS**
+
+**EXAMPLES**
+"""
+
+# reading order:
+# Card
+#  v
+# Library
+#  v
+# MyMsg

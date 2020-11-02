@@ -146,7 +146,7 @@ class InfoMsg(CardMsg):
                                    f'**Expansion**: {self.card.expansion_}\n',
                              inline=True)
         if self.show_img:
-            self.embed.set_image(url=self.card.pic(framed=True, evo=self.evo))
+            self.embed.set_image(url=self.card.pic(frame=True, evo=self.evo))
         if self.card.alts_:
             alts = ""
             for i, alt_id_ in enumerate(self.card.alts_):
