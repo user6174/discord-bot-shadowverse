@@ -4,6 +4,8 @@ from Card import Card
 from typing import List
 from fuzzywuzzy import fuzz
 
+MIN_SIMILARITY = 80
+
 
 class Library:
     def __init__(self):
@@ -50,7 +52,7 @@ class Library:
             if matches_substr:
                 continue
 
-            elif fuzz.partial_ratio(search_terms, name.lower()) > 75:
+            elif fuzz.partial_ratio(search_terms, name.lower()) > MIN_SIMILARITY:
                 matches_fuzzy.append(self.main_id(id_))
         # For testing.
         # return matches_noun, matches_substr, matches_fuzzy
@@ -73,6 +75,5 @@ def library_module_test():
     print(l.search_by_name("Abominecion"))  # testing fuzzy
     print(l.search_by_attributes("2/2 gold neutral banish"))
     print(l.search_by_name('figher'))
-
 
 # library_module_test()

@@ -75,7 +75,7 @@ def local_scope_str(obj: object) -> str:
     """
     ret = '('
     for k, v in obj.__dict__.items():
-        if k not in ("ctx", "msg"):
+        if k not in ("ctx", "msg", "embed"):
             ret += f'{k} -> {v}, '
     ret += '\b\b)'
     return f'{obj.__class__}\t{ret}'
@@ -177,7 +177,7 @@ class MyMsg(object):
         side effects are also executed here.
         Returning None will delete the message, and if there's no edits to make, self.__dict__ is returned.
         """
-        log.info('')
+        log.info(self.__class__)
         if emoji == ':wastebasket:':
             return
         return self.__dict__
@@ -219,7 +219,7 @@ class HelpMsg(MyMsg):
     def __init__(self, ctx, command):
         super().__init__(ctx)
         self.command = command
-        for cmd in (str(c) for c in bot.commands):
+        for cmd in filter(lambda c: c != 'rr', (str(c) for c in bot.commands)):
             if has_help(cmd):
                 self.monitored_emojis.add(chr_to_emoji(cmd[0]))
         self.monitored_emojis.add(':open_book:')
@@ -227,7 +227,7 @@ class HelpMsg(MyMsg):
         log.info(local_scope_str(self))
 
     def edit_embed(self):
-        log.info('')
+        log.info(self.__class__)
         self.embed = discord.Embed(title=str(self.command)) \
             .add_field(name=f'{emojize(":open_book:")} - card search help page\n'
                             f'{emojize(chr_to_emoji("h"))} - main help menu\n\u200b',
@@ -237,7 +237,7 @@ class HelpMsg(MyMsg):
             text="Contact nyx#6294 for bug reports and feedback.")
 
     def edit_args(self, emoji):
-        log.info('')
+        log.info(self.__class__)
         if emoji == ':open_book:':
             # An example of from_dict used as a constructor.
             asyncio.create_task(MyMsg().from_dict({"ctx": self.ctx, "embed": discord.Embed(title='help')
@@ -267,9 +267,9 @@ class MatchesMsg(MyMsg):
         self.embed = discord.Embed(title='Possible matches:')
         for i, match in enumerate(self.matches):
             self.embed.add_field(name=emojize(int_to_emoji(i)), value=LIB.ids[match].name_)
-        log.info(f'{self.embed.fields}')
+        log.info(f'{self.embed}')
 
-    async def wait_for_toggle(self) -> List[str]:
+    async def wait_for_toggle(self) -> List[int]:
         """
         Since MatchesMsg needs to provide a card name to the search function in bot.py, the synchronous reactions
         infrastructure provided by MyMsg can't be used to answer to the user selecting a card.
@@ -330,10 +330,10 @@ class JcgMsg(MyMsg):
             crafts_distribution += plot_craft(list(CRAFTS)[i], craft)
         self.embed.add_field(name=f'**Class Distribution**',
                              value=crafts_distribution)
-        log.info(self.embed.fields)
+        log.info(self.embed)
 
     def edit_args(self, emoji):
-        log.info('')
+        log.info(self.__class__)
         if emoji == ':counterclockwise_arrows_button:':
             asyncio.create_task(self.wait_for_scraper())
             # One can't wait for a subroutine in a synchronous function, and multiple update calls wouldn't make sense,

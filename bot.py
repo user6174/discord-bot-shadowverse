@@ -6,31 +6,41 @@ import time
 import json
 import discord
 import aiohttp
-from natsort import natsorted
 
-from Card import EXPANSIONS
+from typing import List, Tuple
+from natsort import natsorted
 from discord.ext import commands
 from emoji import demojize, emojize
-from CardMsg import PicMsg, InfoMsg, VoiceMsg
-from MyMsg import chr_to_emoji, NO_HELP, LIB, log, bot, hyperlink, has_help, MyMsg, MatchesMsg, JcgMsg, HelpMsg, \
-    int_to_emoji
 
-print(sys.executable)
-print(os.path.abspath(__file__))
-print(*sys.argv)
+from Card import EXPANSIONS
+from MyMsg import NO_HELP, LIB, log, bot
+from MyMsg import chr_to_emoji, int_to_emoji, hyperlink, has_help
+from MyMsg import MyMsg, MatchesMsg, JcgMsg, HelpMsg
+from CardMsg import PicMsg, InfoMsg, VoiceMsg
+
+log.info(sys.executable)
+log.info(os.path.abspath(__file__))
+log.info(*sys.argv)
 
 MAINTAINER_ID = 186585846906880001
 MAX_MATCHES = 11
+SITE = 'https://shadowverse-portal.com'
 
 DEV = 1
-# DEV = 0  # uncomment on raspberry
+# DEV = 0  # Uncomment on raspberry.
 with open(f'token_{"testing" if DEV else "main"}.txt', 'r') as txt:
     TOKEN = txt.readline()
 
 
-async def search(ctx, *search_terms, attrs, lax):
+# CARD COMMANDS ########################################################################################################
+
+async def search(ctx, *search_terms, by_attrs, lax) -> List[int]:
+    """
+    An async extension of the Library class methods for card searches. Tries to fallback on other search methods
+    upon unsuccessful lookups, and asks for user input with a MatchesMsg menu depending on the amount of matches.
+    """
     search_terms = ' '.join(search_terms)
-    if attrs:
+    if by_attrs:
         matches = LIB.search_by_attributes(search_terms)
     else:
         matches = LIB.search_by_name(search_terms, lax=lax)
@@ -46,23 +56,28 @@ async def search(ctx, *search_terms, attrs, lax):
         return await matches_obj.wait_for_toggle()
 
 
-async def deck_hash_assets(deck_hash):
+async def deck_hash_assets(deck_hash) -> Tuple[str, str, io.BytesIO]:
     async with aiohttp.ClientSession() as s:
-        async with s.post('https://shadowverse-portal.com/api/v1/deck_code/publish?format=json&lang=en',
+        async with s.post(f'{SITE}/api/v1/deck_code/publish?format=json&lang=en',
                           data={'hash': deck_hash}) as r:
             deck_code = json.loads(await r.text())["data"]["deck_code"]
-        deck_url = f'https://shadowverse-portal.com/deck/{deck_hash}?lang=en'
-        async with s.get('https://shadowverse-portal.com/image/1?lang=en', headers={'referer': deck_url}) as r:
+        deck_url = f'{SITE}/deck/{deck_hash}?lang=en'
+        async with s.get(f'{SITE}/image/1?lang=en', headers={'referer': deck_url}) as r:
             deck_img = io.BytesIO(await r.read())
     return deck_code, deck_url, deck_img
 
 
-async def card_commands_template(ctx, msg_maker, *args):
+async def card_commands_executor(ctx, msg_maker, *args):
+    """
+    Takes the user message relative to a card command request, handles card search options (if any are passed), issues
+    a card search and dispatches the relative card command or sends info about the card search, depending on,
+    respectively, if said search was successful or not.
+    """
     flags = tuple(filter(lambda x: x in ('-l', '--lax', '-a', '--attrs'), args))
     search_terms = tuple(filter(lambda x: x not in flags, args))
-    attrs = '-a' in flags or '--attrs' in flags
+    by_attrs = '-a' in flags or '--attrs' in flags
     lax = '-l' in flags or '--lax' in flags
-    matches = await search(ctx, *search_terms, attrs=attrs, lax=lax)
+    matches = await search(ctx, *search_terms, by_attrs=by_attrs, lax=lax)
     if len(matches) == 1:
         card_msg = msg_maker(ctx, matches[0])
         await card_msg.dispatch()
@@ -70,53 +85,78 @@ async def card_commands_template(ctx, msg_maker, *args):
         await ctx.send(embed=discord.Embed(title=f'{(len(matches))} matches found.'))
 
 
-# COMMANDS #############################################################################################################
-
-@bot.command(help=NO_HELP)
+# Card commands have no help doc because any additional arguments they may have is better implemented as a reaction
+# toggle, and card search has its own help doc.
+@bot.command(aliases=['i'], help=NO_HELP)
 async def info(ctx, *args):
-    await card_commands_template(ctx, InfoMsg, *args)
+    await card_commands_executor(ctx, InfoMsg, *args)
 
 
-@bot.command(help=NO_HELP)
+@bot.command(aliases=['p', 'img', 'art'], help=NO_HELP)
 async def pic(ctx, *args):
-    await card_commands_template(ctx, PicMsg, *args)
+    await card_commands_executor(ctx, PicMsg, *args)
 
 
-@bot.command(help=NO_HELP)
+@bot.command(aliases=['v', 'sound', 'audio'], help=NO_HELP)
 async def voice(ctx, *args):
-    await card_commands_template(ctx, VoiceMsg, *args)
+    await card_commands_executor(ctx, VoiceMsg, *args)
 
 
-@bot.command(help='sets')
-async def sets(ctx, *args):
-    start_idx = -5 * ('-r' in args or '--rotation' in args)
+# OTHER COMMANDS #######################################################################################################
+
+
+@bot.command(aliases=['s', 'expacs'], help="""**SYNOPSIS**
+`{pfx}s`
+`{pfx}sets`
+`{pfx}sets -r`
+
+**DESCRIPTION**
+Shows the list of expansions in chronological order, with their release date.
+
+**OPTIONS**
+**-r**, **--rotation**
+Shows the set that's about to rotate and the ones currently in Rotation.
+""".format(pfx=bot.command_prefix))
+async def sets(ctx, flag='-u'):
+    # Showing the last 6 sets.
+    start_idx = -6 * (flag in ('-r', '--rotation'))
     embed = discord.Embed()
     embed_val = ''
     for i, expac in enumerate(list(filter(lambda xpc: xpc not in ("Token", "Promo"), EXPANSIONS))[start_idx:], start=1):
-        # -7 separates the crafts in Rotation, -(5 of them + 2 of the excluded above)
-        embed_val += f'{EXPANSIONS[expac][1]} **{expac}**\n'
-        # ('\n' if i == len(EXPANSIONS) - 7 else '')
+        markdown = '~~' if (start_idx == -6 and i == 1) else '**'
+        embed_val += f'{EXPANSIONS[expac][1]} {markdown}{expac}{markdown}\n'
     embed.add_field(name='\u200b', value=embed_val)
-    # MyMsg is usually meant as an abstract superclass, but thanks to from_dict it can instantiate what would be an
-    # anonymous subclass of itself (similar to what a lambda is for a function).
     await MyMsg().from_dict({"ctx": ctx, "embed": embed}).dispatch()
 
 
-@bot.command(help='jcg')
-async def jcg(ctx, mode='rotation'):
+@bot.command(aliases=['j', 'tour', 'tourney'], help="""**SYNOPSIS**
+`{pfx}j`
+`{pfx}jcg`
+`{pfx}jcg -u`
+
+**DESCRIPTION**
+Shows the latest Rotation {jcg}.
+
+**OPTIONS**
+**-u**, **--unlimited**
+Shows the latest Unlimited JCG instead."""
+             .format(pfx=bot.command_prefix, jcg=hyperlink('JCG', 'https://sv.j-cg.com/')))
+async def jcg(ctx, flag='-r'):
+    mode = 'unlimited' if flag in ('-u', '--unlimited') else 'rotation'
     await JcgMsg(ctx, mode).dispatch()
 
 
-@bot.command(help='**SYNOPSIS**\n'
-                  '\t**code** __DECK_CODE__\n\n'
-                  '**DESCRIPTION**\n'
-                  'Returns the Shadowverse-Portal link and image relative to '
-                  'with the given 4-digits __DECK_CODE__.'
-             )
+@bot.command(aliases=['c'], help="""**SYNOPSIS**
+`{pfx}c <DECK_CODE>`
+`{pfx}code <DECK_CODE>`
+
+**DESCRIPTION**
+Shows the deck's image and link corresponding to a valid deck code.
+""".format(pfx=bot.command_prefix))
 async def code(ctx, deck_code):
     async with aiohttp.ClientSession() as s:
         async with s.get(
-                f'https://shadowverse-portal.com/api/v1/deck/import?format=json&deck_code={deck_code}&lang=en') as r:
+                f'{SITE}/api/v1/deck/import?format=json&deck_code={deck_code}&lang=en') as r:
             data = json.loads(await r.text())["data"]
     if data['clan'] is None:
         return await ctx.send(embed=discord.Embed(title="The deck code is invalid or has expired!"))
@@ -125,7 +165,7 @@ async def code(ctx, deck_code):
                    file=discord.File(deck_img, 'deck.png'))
 
 
-@bot.command()
+@bot.command(help=NO_HELP)
 @commands.check(lambda ctx: ctx.message.author.id == MAINTAINER_ID)
 async def rr(ctx):
     await ctx.message.author.send('rr')
@@ -138,7 +178,7 @@ async def rr(ctx):
 async def on_ready():
     log.info(f'{bot.user} is active.')
     log.info(f'available commands: {", ".join(cmd.name for cmd in bot.commands)}')
-    await bot.change_presence(activity=discord.Game(f'{bot.command_prefix}help/{bot.command_prefix}h'))
+    await bot.change_presence(activity=discord.Game(f'{bot.command_prefix}h / {bot.command_prefix}help'))
 
 
 @bot.event
@@ -154,13 +194,13 @@ async def on_command_error(ctx, error):
     # Command prefix + string defaults to info(string).
     if isinstance(error, commands.CommandNotFound):
         args = tuple(ctx.message.content[1:].split(' '))
-        await card_commands_template(ctx, InfoMsg, *args)
+        await card_commands_executor(ctx, InfoMsg, *args)
 
 
 @bot.event
 async def on_message(message):
-    # If the message contains a deck link, post deck code + image
-    if 'https://shadowverse-portal.com/deck' in message.content and message.author != bot.user:
+    # If the message contains a deck link, its deck code + image are posted.
+    if f'{SITE}/deck' in message.content and message.author != bot.user:
         try:
             deck_hash = message.content.split('deck/')[1].split('lang')[0][:-1]
         except IndexError:
@@ -175,6 +215,7 @@ async def on_message(message):
 
 fmt_commands_list = ''
 command_names = natsorted(str(cmd) for cmd in bot.commands)
+command_names.remove('rr')
 for cmd in command_names:
     emoji = int_to_emoji('*') if not has_help(cmd) else chr_to_emoji(cmd[0])
     emoji = emojize(emoji)
@@ -187,7 +228,7 @@ help_doc = """
 • When a {svportal_link} deck link is detected, its deck code and image are automatically posted.
 """.format(fmt=fmt_commands_list,
            pfx=bot.command_prefix,
-           svportal_link=hyperlink('Shadowverse Portal', 'https://shadowverse-portal.com/?lang=en'))
+           svportal_link=hyperlink('Shadowverse Portal', '{SITE}/?lang=en'))
 
 
 @bot.remove_command('help')
@@ -204,28 +245,3 @@ bot.run(TOKEN)
 # restart (when rr gets called)
 time.sleep(5)
 os.execl('/usr/bin/python', os.path.abspath(__file__), *sys.argv)
-
-# TODO list
-#  start from base files and go upwards with documentation and log, also solve pycharm warnings
-#       done Card, Library, MyMsg
-#  finish help docs for commands
-#       not started, skeleton below
-#  think about additional arguments for commands, flags if needed (see card_commands_template)
-#  think about new commands
-
-# skeleton:
-"""**SYNOPSIS**
-
-**DESCRIPTION**
-
-**OPTIONS**
-
-**EXAMPLES**
-"""
-
-# reading order:
-# Card
-#  v
-# Library
-#  v
-# MyMsg
