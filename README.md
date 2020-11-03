@@ -1,4 +1,4 @@
-# shadowverse discord bot
+# discord bot shadowverse 
 uses [shadowverse-json](https://github.com/user6174/shadowverse-json)
 
 ### Reading order 
