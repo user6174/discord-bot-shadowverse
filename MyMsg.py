@@ -15,7 +15,7 @@ from Library import Library
 LIB = Library()
 
 # Logging is setup to write to .../current_directory/bot.log and to stdout.
-style = logging.Formatter('%(asctime)s [%(funcName)-19s]  %(message)s')
+style = logging.Formatter('%(asctime)s [%(funcName)-10s]  %(message)s')
 log = logging.getLogger('discord')
 log.setLevel(logging.INFO)
 
@@ -69,23 +69,25 @@ def chr_emojis(l: iter) -> iter:
     return filter(lambda e: 'regional' in e, l)
 
 
-def local_scope_str(obj: object) -> str:
-    """
-    Returns the current couples field/value belonging to the input object, for logging purposes.
-    """
-    ret = '('
-    for k, v in obj.__dict__.items():
-        if k not in ("ctx", "msg", "embed"):
-            ret += f'{k} -> {v}, '
-    ret += '\b\b)'
-    return f'{obj.__class__}\t{ret}'
-
-
 class MyMsg(object):
     """
     This class creates and manages the messages requested by the bot commands.
     """
     __all__ = {}  # A cache of the last MAX_WATCHED_MSGS messages.
+
+    def log_scope(self, curr_cls) -> str:
+        """
+        Returns the current couples field/value belonging to the input object, for logging purposes.
+        The current class isn't read through self.__class__ because this fails to recognize the "classes walk" done
+        by a function following multiple super calls. Also note that the logging can't happen here because the logger is
+        formatted to look at the name of the function executing it.
+        """
+        ret = ''
+        for k, v in self.__dict__.items():
+            if k not in ("ctx", "msg", "embed"):
+                ret += f'{k}={v}, '
+        ret += '\b\b'
+        return f'cls={curr_cls.__name__}, {ret}'
 
     def __init__(self, ctx: Optional[discord.ext.commands.Context] = None):
         self.ctx = ctx
@@ -93,7 +95,7 @@ class MyMsg(object):
         self.msg: Optional[discord.message.Message] = None
         # A list of the emojis that, if added to the message as a reaction, cause the class to modify the message.
         self.monitored_emojis = {':wastebasket:'}
-        log.info(local_scope_str(self))
+        log.info(self.log_scope(MyMsg))
 
     @classmethod
     def from_dict(cls, fields: dict) -> 'MyMsg':
@@ -110,7 +112,7 @@ class MyMsg(object):
         obj.__class__ = cls  # Preparing an empty instance of the target class by "casting" it over MyMsg.
         for name, value in fields.items():
             obj.__setattr__(name, value)
-        log.info(local_scope_str(obj))
+        log.info(obj.log_scope(obj.__class__))
         return obj
 
     def edit_embed(self):
@@ -224,7 +226,7 @@ class HelpMsg(MyMsg):
                 self.monitored_emojis.add(chr_to_emoji(cmd[0]))
         self.monitored_emojis.add(':open_book:')
         self.edit_embed()
-        log.info(local_scope_str(self))
+        log.info(self.log_scope(HelpMsg))
 
     def edit_embed(self):
         log.info(self.__class__)
@@ -261,7 +263,7 @@ class MatchesMsg(MyMsg):
         for i, match in enumerate(self.matches):
             self.monitored_emojis.add(int_to_emoji(i))
         self.edit_embed()
-        log.info(local_scope_str(self))
+        log.info(self.log_scope(MatchesMsg))
 
     def edit_embed(self):
         self.embed = discord.Embed(title='Possible matches:')
@@ -305,7 +307,7 @@ class JcgMsg(MyMsg):
         self.mode = mode
         self.edit_embed()
         self.monitored_emojis.add(':counterclockwise_arrows_button:')
-        log.info(local_scope_str(self))
+        log.info(self.log_scope(JcgMsg))
 
     def edit_embed(self):
         try:

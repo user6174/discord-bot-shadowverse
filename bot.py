@@ -48,6 +48,7 @@ async def search(ctx, *search_terms, by_attrs, lax) -> List[int]:
             matches = LIB.search_by_name(search_terms, lax=True)
         if not matches:
             matches = LIB.search_by_attributes(search_terms)
+    log.info(f'{len(matches)} match{"es" if len(matches) != 1 else ""}')
     if len(matches) < 2 or len(matches) > MAX_MATCHES:
         return matches
     else:
@@ -199,6 +200,11 @@ async def on_command_error(ctx, error):
 
 @bot.event
 async def on_message(message):
+    # Log messages for the bot.
+    if message.content.startswith(bot.command_prefix):
+        log_msg = f'[{message.channel}, {message.guild}] {message.author}: {message.content}'
+        pad = '*'*len(log_msg)
+        log.info(f'\n{pad}\n{log_msg}\n{pad}')
     # If the message contains a deck link, its deck code + image are posted.
     if f'{SITE}/deck' in message.content and message.author != bot.user:
         try:

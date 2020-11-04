@@ -7,13 +7,22 @@ from emoji import emojize
 from Card import SITE
 from MyMsg import MyMsg
 from MyMsg import LIB, CRAFTS, log
-from MyMsg import chr_to_emoji, chr_emojis, int_to_emoji, int_emojis, local_scope_str, hyperlink
+from MyMsg import chr_to_emoji, chr_emojis, int_to_emoji, int_emojis, hyperlink
+
+
+def log_cls(curr_cls):
+    """
+    A smaller version of log_scope, registering only the current class. Why the class is passed explicitly is explained
+    there.
+    """
+    return f'cls={curr_cls.__name__}'
 
 
 class CardMsg(MyMsg):
     """
     A subclass containing the general traits of messages dealing with cards.
     """
+
     def __init__(self, ctx, id_, evo=False):
         super().__init__(ctx)
         self.id_ = id_
@@ -23,7 +32,7 @@ class CardMsg(MyMsg):
             self.monitored_emojis.add(':dna:')
         for i in range(len(card.alts_)):
             self.monitored_emojis.add(chr_to_emoji(chr(ord('a') + i)))
-        log.info(local_scope_str(self))
+        log.info(self.log_scope(CardMsg.__name__))
 
     def edit_embed(self):
         """
@@ -31,13 +40,13 @@ class CardMsg(MyMsg):
         does here is to initialize the skeleton of the embed that the subclasses below will actually edit. It follows
         that, when overridden, the super() call should be the first instruction.
         """
-        log.info(self.__class__)
+        log.info(log_cls(CardMsg))
         self.embed = discord.Embed(title=f'{LIB.ids[self.id_].name_} {"Evolved" if self.evo else ""}')
         self.embed.url = f'https://shadowverse-portal.com/card/{self.id_}?lang=en'
         self.embed.set_footer(text="Contact nyx#6294 for bug reports and feedback.")
 
     def edit_args(self, emoji):
-        log.info(self.__class__)
+        log.info(log_cls(CardMsg))
         new_args = self.__dict__
         if emoji == ':dna:':
             new_args["evo"] = not new_args["evo"]
@@ -77,7 +86,7 @@ class VoiceMsg(CardMsg):
         self.lang = lang
         # The embed isn't built with edit_embed here, but when dispatching, because the bot needs to get the voice lines
         # online, so an async function is needed so that execution isn't blocked.
-        log.info(local_scope_str(self))
+        log.info(self.log_scope(VoiceMsg))
 
     def edit_embed(self):
         """
@@ -89,7 +98,7 @@ class VoiceMsg(CardMsg):
         self.embed.title = emoji + f' {LIB.ids[self.id_].name_}'
         for i, field in enumerate(fields):
             self.embed.set_field_at(i, name=field.name, value=field.value.replace(old_lang, self.lang), inline=False)
-        log.info(self.embed)
+        log.info(self.log_scope(VoiceMsg))
 
     async def dispatch(self):
         """
@@ -106,11 +115,11 @@ class VoiceMsg(CardMsg):
                                      value=hyperlink(f'• {fmt_action(game_action, line)}',
                                                      f'{SITE}/assets/audio/{self.lang}/{line}'),
                                      inline=False)
-        log.info(self.embed)
+        log.info(self.log_scope(VoiceMsg))
         await super().dispatch()
 
     def edit_args(self, emoji):
-        log.info(self.__class__)
+        log.info(log_cls(VoiceMsg))
         if emoji == ":speech_balloon:":
             new_args = self.__dict__
             new_args["lang"] = 'en' if new_args["lang"] == 'jp' else 'jp'
@@ -122,10 +131,10 @@ class PicMsg(CardMsg):
     def __init__(self, ctx, id_, evo=False):
         super().__init__(ctx, id_, evo)
         self.edit_embed()
-        log.info(local_scope_str(self))
+        log.info(self.log_scope(PicMsg))
 
     def edit_embed(self):
-        log.info(self.__class__)
+        log.info(log_cls(PicMsg))
         super().edit_embed()
         card = LIB.ids[self.id_]
         self.embed.set_image(url=card.pic(evo=self.evo))
@@ -136,6 +145,7 @@ class PicMsg(CardMsg):
                 chr_ = (chr(ord('a') + i)).upper()
                 footer_txt += f'{chr_}: {card.expansion_}\n'
             self.embed.set_footer(text=f'Other artworks:\n{footer_txt}')
+        log.info(self.log_scope(PicMsg))
 
 
 class InfoMsg(CardMsg):
@@ -146,7 +156,7 @@ class InfoMsg(CardMsg):
             self.monitored_emojis.add(int_to_emoji(i))
         self.monitored_emojis.add(':artist_palette:')
         self.edit_embed()
-        log.info(local_scope_str(self))
+        log.info(self.log_scope(InfoMsg))
 
     def edit_embed(self):
         super().edit_embed()
@@ -196,10 +206,10 @@ class InfoMsg(CardMsg):
             self.embed.set_footer(text=card.baseFlair_)
         self.embed.set_thumbnail(
             url=f'https://shadowverse-wins.com/common/img/leader_{CRAFTS[card.craft_]["icon"]}.png')
-        log.info(self.embed)
+        log.info(self.log_scope(InfoMsg))
 
     def edit_args(self, emoji):
-        log.info(self.__class__)
+        log.info(log_cls(InfoMsg))
         new_args = self.__dict__
         if emoji == ':artist_palette:':
             new_args["show_img"] = not new_args["show_img"]
