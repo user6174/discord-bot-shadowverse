@@ -15,7 +15,7 @@ def log_cls(curr_cls):
     A smaller version of log_scope, registering only the current class. Why the class is passed explicitly is explained
     there.
     """
-    return f'cls={curr_cls.__name__}'
+    return f'{curr_cls.__name__=}'
 
 
 class CardMsg(MyMsg):
@@ -32,7 +32,7 @@ class CardMsg(MyMsg):
             self.monitored_emojis.add(':dna:')
         for i in range(len(card.alts_)):
             self.monitored_emojis.add(chr_to_emoji(chr(ord('a') + i)))
-        log.info(self.log_scope(CardMsg.__name__))
+        log.info(self.log_scope(CardMsg))
 
     def edit_embed(self):
         """
@@ -43,7 +43,7 @@ class CardMsg(MyMsg):
         log.info(log_cls(CardMsg))
         self.embed = discord.Embed(title=f'{LIB.ids[self.id_].name_} {"Evolved" if self.evo else ""}')
         self.embed.url = f'https://shadowverse-portal.com/card/{self.id_}?lang=en'
-        self.embed.set_footer(text="Contact nyx#6294 for bug reports and feedback.")
+        self.embed.colour = CRAFTS[LIB.ids[self.id_].craft_]['hex']
 
     def edit_args(self, emoji):
         log.info(log_cls(CardMsg))
@@ -161,7 +161,6 @@ class InfoMsg(CardMsg):
     def edit_embed(self):
         super().edit_embed()
         card = LIB.ids[self.id_]
-        self.embed.colour = CRAFTS[card.craft_]['hex']
         # first row
         self.embed.add_field(name='\u200b',
                              value=f'**Cost**: {card.pp_}pp\n' +

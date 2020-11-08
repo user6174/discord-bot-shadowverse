@@ -1,6 +1,6 @@
 import os
 import json
-from Card import Card
+from Card import Card, CURR_DIR
 from typing import List
 from fuzzywuzzy import fuzz
 
@@ -9,7 +9,7 @@ MIN_SIMILARITY = 80
 
 class Library:
     def __init__(self):
-        with open(f'{os.getcwd()}/shadowverse-json/en/all.json', 'r') as f:
+        with open(f'{CURR_DIR}/shadowverse-json/en/all.json', 'r') as f:
             data = json.load(f)
         self.ids = dict((data[id_]["id_"], Card(data[id_])) for id_ in data)
 
@@ -54,8 +54,7 @@ class Library:
 
             elif fuzz.partial_ratio(search_terms, name.lower()) > MIN_SIMILARITY:
                 matches_fuzzy.append(self.main_id(id_))
-        # For testing.
-        # return matches_noun, matches_substr, matches_fuzzy
+        # return matches_noun, matches_substr, matches_fuzzy  # For testing.
         return matches_noun if matches_noun else matches_substr if matches_substr else matches_fuzzy
 
     def search_by_attributes(self, search_terms: str) -> List[int]:

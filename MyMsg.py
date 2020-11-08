@@ -87,7 +87,7 @@ class MyMsg(object):
             if k not in ("ctx", "msg", "embed"):
                 ret += f'{k}={v}, '
         ret += '\b\b'
-        return f'cls={curr_cls.__name__}, {ret}'
+        return f'{curr_cls.__name__=}, {ret}'
 
     def __init__(self, ctx: Optional[discord.ext.commands.Context] = None):
         self.ctx = ctx
@@ -128,7 +128,7 @@ class MyMsg(object):
         self.msg = await self.ctx.send(embed=self.embed)
         self.dress()
         MyMsg.__all__[self.msg.id] = self
-        log.info(f'sending msg {self.msg.id} (len(__all__) = {len(MyMsg.__all__)})')
+        log.info(f'sending msg {self.msg.id} {len(MyMsg.__all__)=})')
         if len(MyMsg.__all__) > MAX_WATCHED_MSGS:
             oldest_msg = min(MyMsg.__all__.keys())  # msg.id is its timestamp
             await MyMsg.__all__[oldest_msg].abandon()
@@ -138,7 +138,7 @@ class MyMsg(object):
         Reacts to the message with the emojis in monitored_emojis.
         """
         emojis = natsorted(self.monitored_emojis)
-        log.info(emojis)
+        log.info(f'{emojis=}')
         for emoji in emojis:
             asyncio.create_task(self.msg.add_reaction(emojize(emoji)))
 
@@ -146,7 +146,7 @@ class MyMsg(object):
         """
         An abandoned message gets dropped from the internal cache and becomes inert to reactions.
         """
-        log.info(f'abandoning msg {self.msg.id} (delete -> {delete_msg}, len(__all__) -> {len(MyMsg.__all__)})')
+        log.info(f'abandoning msg {self.msg.id} ({delete_msg=}, {len(MyMsg.__all__)=})')
         del MyMsg.__all__[self.msg.id]
         if delete_msg:
             await self.msg.delete()
@@ -163,7 +163,7 @@ class MyMsg(object):
             log.info(f'msg {msg_id} has already been deleted')
             return
         new_args = obj.edit_args(emoji)
-        log.info(new_args)
+        log.info(f'{new_args=}')
         if new_args is None:  # The trash emoji was pressed.
             asyncio.create_task(obj.abandon(delete_msg=True))
             return
@@ -179,7 +179,7 @@ class MyMsg(object):
         side effects are also executed here.
         Returning None will delete the message, and if there's no edits to make, self.__dict__ is returned.
         """
-        log.info(self.__class__)
+        log.info(f'{self.__class__=}')
         if emoji == ':wastebasket:':
             return
         return self.__dict__
@@ -229,17 +229,17 @@ class HelpMsg(MyMsg):
         log.info(self.log_scope(HelpMsg))
 
     def edit_embed(self):
-        log.info(self.__class__)
+        log.info(f'{self.__class__=}')
         self.embed = discord.Embed(title=str(self.command)) \
             .add_field(name=f'{emojize(":open_book:")} - card search help page\n'
                             f'{emojize(chr_to_emoji("h"))} - main help menu\n\u200b',
                        value=self.command.help)
         self.embed.set_footer(
             icon_url="https://panels-images.twitch.tv/panel-126362130-image-d5e33b7d-d6ff-418d-9ec8-d83c2d49739e",
-            text="Contact nyx#6294 for bug reports and feedback.")
+            text='Contact nyx#6294 for bug reports and feedback.')
 
     def edit_args(self, emoji):
-        log.info(self.__class__)
+        log.info(f'{self.__class__=}')
         if emoji == ':open_book:':
             # An example of from_dict used as a constructor.
             asyncio.create_task(MyMsg().from_dict({"ctx": self.ctx, "embed": discord.Embed(title='help')
@@ -269,7 +269,7 @@ class MatchesMsg(MyMsg):
         self.embed = discord.Embed(title='Possible matches:')
         for i, match in enumerate(self.matches):
             self.embed.add_field(name=emojize(int_to_emoji(i)), value=LIB.ids[match].name_)
-        log.info(f'{self.embed}')
+        log.info(f'{self.__class__=}')
 
     async def wait_for_toggle(self) -> List[int]:
         """
@@ -332,10 +332,10 @@ class JcgMsg(MyMsg):
             crafts_distribution += plot_craft(list(CRAFTS)[i], craft)
         self.embed.add_field(name=f'**Class Distribution**',
                              value=crafts_distribution)
-        log.info(self.embed)
+        log.info(f'{self.__class__=}')
 
     def edit_args(self, emoji):
-        log.info(self.__class__)
+        log.info(f'{self.__class__=}')
         if emoji == ':counterclockwise_arrows_button:':
             asyncio.create_task(self.wait_for_scraper())
             # One can't wait for a subroutine in a synchronous function, and multiple update calls wouldn't make sense,
@@ -346,7 +346,7 @@ class JcgMsg(MyMsg):
         return super().edit_args(emoji)
 
     async def wait_for_scraper(self, error=False):
-        log.info(f'error={error}')
+        log.info(f'{error=}')
         if error:
             msg = await self.ctx.send(embed=discord.Embed(title='There was a problem reading the tournament data. '
                                                                 'Trying to fetch it again, please wait...'))

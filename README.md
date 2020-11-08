@@ -1,15 +1,6 @@
-# discord bot shadowverse 
-uses [shadowverse-json](https://github.com/user6174/shadowverse-json)
+The recommended browsing order is 
+`Card > Library > MyMsg > CardMsg > bot`.
 
-### Reading order 
+### Usage
+Add the bot to your server through this [link](https://discord.com/oauth2/authorize?client_id=684142820122296349&scope=bot). 
 
-`Card > Library > MyMsg > bot`
-### Classes:
-
-```  
-            Mymsg -- JcgMsg
-          /   |   \
-MatchesMsg CardMsg HelpMsg
-           /  |  \ 
-   VoiceMsg PicMsg InfoMsg
-```

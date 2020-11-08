@@ -44,7 +44,7 @@ async def scrape_tournament(session, url, format_) -> dict or None:
                     print(f'already scraped, skipping')
                     return None
                 else:
-                    print(f'determined that {name} is newer than {tmp["name"]}')
+                    print(f'{name} is newer than {tmp["name"]}, scraping')
             except json.decoder.JSONDecodeError:  # corrupt json, re-scrape
                 pass
     except FileNotFoundError:  # no json, scrape

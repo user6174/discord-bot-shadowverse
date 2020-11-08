@@ -26,8 +26,8 @@ MAINTAINER_ID = 186585846906880001
 MAX_MATCHES = 11
 SITE = 'https://shadowverse-portal.com'
 
-DEV = 1
-# DEV = 0  # Uncomment on raspberry.
+
+DEV = 1  # 0 on Raspberry.
 with open(f'token_{"testing" if DEV else "main"}.txt', 'r') as txt:
     TOKEN = txt.readline()
 
@@ -86,7 +86,7 @@ async def card_commands_executor(ctx, msg_maker, *args):
         await ctx.send(embed=discord.Embed(title=f'{(len(matches))} matches found.'))
 
 
-# Card commands have no help doc because any additional arguments they may have is better implemented as a reaction
+# Card commands have no help doc because any additional arguments they may have are better implemented as a reaction
 # toggle, and card search has its own help doc.
 @bot.command(aliases=['i'], help=NO_HELP)
 async def info(ctx, *args):
@@ -230,11 +230,13 @@ for cmd in command_names:
 help_doc = """
 **AVAILABLE COMMANDS**
 {fmt}
-**OTHER FEATURES**
+**OTHER**
 • When a {svportal_link} deck link is detected, its deck code and image are automatically posted.
+• Use this {link} to add this bot to your server.\n
 """.format(fmt=fmt_commands_list,
            pfx=bot.command_prefix,
-           svportal_link=hyperlink('Shadowverse Portal', '{SITE}/?lang=en'))
+           svportal_link=hyperlink('Shadowverse Portal', '{SITE}/?lang=en'),
+           link=hyperlink("link", "https://discord.com/oauth2/authorize?client_id=684142820122296349&scope=bot"))
 
 
 @bot.remove_command('help')

@@ -1,6 +1,7 @@
 import os
 import json
 
+CURR_DIR = os.path.dirname(os.path.realpath(__file__))
 SITE = "https://svgdb.me"
 EXPANSIONS = {"Token": ("TK", "1970-01-01"),
               "Promo": ("PR", "1970-01-01"),
@@ -64,7 +65,7 @@ class Card:
 
 def card_module_test():
     # Make sure that shadowverse-json is in, or is symlinked to, discord-bot-shadowverse.
-    with open(f'{os.getcwd()}/shadowverse-json/en/all.json', 'r') as f:
+    with open(f'{CURR_DIR}/shadowverse-json/en/all.json', 'r') as f:
         data = json.load(f)
     c = Card(data['112011030'])
     for k, v in c.__dict__.items():
