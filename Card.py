@@ -51,7 +51,7 @@ class Card:
             self.__setattr__(k, v)
 
     def searchable(self) -> str:
-        # Used when searching a card's attribute, and thus lacking the card's name.
+        # Used when searching a card's attribute, and thus expressly lacking the card's name.
         return f'{self.pp_}pp {self.rarity_} {self.craft_} {self.trait_} {self.type_} {self.expansion_} ' \
                f'{EXPANSIONS[self.expansion_][0]} {self.baseAtk_}/{self.baseDef_} ' \
                f'{"rotation" if self.rotation_ else "unlimited"} {self.baseEffect_} {self.evoEffect_}'.lower()
@@ -63,8 +63,9 @@ class Card:
             return f'{SITE}/assets/fullart/{self.id_}{int(evo)}.png'
 
 
-def card_module_test():
-    # Make sure that shadowverse-json is in, or is symlinked to, discord-bot-shadowverse.
+# Tests:
+if __name__ == "__main__":
+    # Make sure that shadowverse-json is in, or is symlinked into, discord-bot-shadowverse.
     with open(f'{CURR_DIR}/shadowverse-json/en/all.json', 'r') as f:
         data = json.load(f)
     c = Card(data['112011030'])
@@ -73,5 +74,3 @@ def card_module_test():
     print(c.searchable())
     print(c.pic())
     print(c.pic(frame=True, evo=c.type_ == 'Follower'))
-
-# card_module_test()

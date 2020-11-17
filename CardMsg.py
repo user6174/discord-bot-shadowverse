@@ -40,19 +40,19 @@ class CardMsg(MyMsg):
         does here is to initialize the skeleton of the embed that the subclasses below will actually edit. It follows
         that, when overridden, the super() call should be the first instruction.
         """
-        log.info(log_cls(CardMsg))
         self.embed = discord.Embed(title=f'{LIB.ids[self.id_].name_} {"Evolved" if self.evo else ""}')
         self.embed.url = f'https://shadowverse-portal.com/card/{self.id_}?lang=en'
         self.embed.colour = CRAFTS[LIB.ids[self.id_].craft_]['hex']
 
     def edit_args(self, emoji):
-        log.info(log_cls(CardMsg))
         new_args = self.__dict__
         if emoji == ':dna:':
+            log.info('changing evo flag')
             new_args["evo"] = not new_args["evo"]
             return new_args
         if emoji in chr_emojis(self.monitored_emojis):
             new_args["id_"] = LIB.ids[self.id_].alts_[ord(emoji[-2]) - ord('a')]
+            log.info(f'{new_args["id_"]=}')
             return new_args
         return super().edit_args(emoji)
 
@@ -98,7 +98,6 @@ class VoiceMsg(CardMsg):
         self.embed.title = emoji + f' {LIB.ids[self.id_].name_}'
         for i, field in enumerate(fields):
             self.embed.set_field_at(i, name=field.name, value=field.value.replace(old_lang, self.lang), inline=False)
-        log.info(self.log_scope(VoiceMsg))
 
     async def dispatch(self):
         """
@@ -119,8 +118,8 @@ class VoiceMsg(CardMsg):
         await super().dispatch()
 
     def edit_args(self, emoji):
-        log.info(log_cls(VoiceMsg))
         if emoji == ":speech_balloon:":
+            log.info('swapping language')
             new_args = self.__dict__
             new_args["lang"] = 'en' if new_args["lang"] == 'jp' else 'jp'
             return new_args
@@ -145,7 +144,6 @@ class PicMsg(CardMsg):
                 chr_ = (chr(ord('a') + i)).upper()
                 footer_txt += f'{chr_}: {card.expansion_}\n'
             self.embed.set_footer(text=f'Other artworks:\n{footer_txt}')
-        log.info(self.log_scope(PicMsg))
 
 
 class InfoMsg(CardMsg):
@@ -205,17 +203,17 @@ class InfoMsg(CardMsg):
             self.embed.set_footer(text=card.baseFlair_)
         self.embed.set_thumbnail(
             url=f'https://shadowverse-wins.com/common/img/leader_{CRAFTS[card.craft_]["icon"]}.png')
-        log.info(self.log_scope(InfoMsg))
 
     def edit_args(self, emoji):
-        log.info(log_cls(InfoMsg))
         new_args = self.__dict__
         if emoji == ':artist_palette:':
+            log.info('swapping img flag')
             new_args["show_img"] = not new_args["show_img"]
             return new_args
         if emoji in int_emojis(self.monitored_emojis):
             # Sending the token as a separate message.
             tk_id = LIB.ids[self.id_].tokens_[int(emoji[-2])]
+            log.info(f'sending info page of {tk_id=}')
             tk_msg = InfoMsg(self.ctx, tk_id)
             asyncio.create_task(tk_msg.dispatch())
             return new_args

@@ -7,9 +7,7 @@ from typing import Optional, Union, List
 from natsort import natsorted
 from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
 from emoji import emojize, demojize
-
 from Jcg_utils import update_jcgs
-
 from Library import Library
 
 LIB = Library()
@@ -147,6 +145,7 @@ class MyMsg(object):
         An abandoned message gets dropped from the internal cache and becomes inert to reactions.
         """
         log.info(f'abandoning msg {self.msg.id} ({delete_msg=}, {len(MyMsg.__all__)=})')
+        await self.msg.clear_reactions()
         del MyMsg.__all__[self.msg.id]
         if delete_msg:
             await self.msg.delete()
@@ -163,7 +162,6 @@ class MyMsg(object):
             log.info(f'msg {msg_id} has already been deleted')
             return
         new_args = obj.edit_args(emoji)
-        log.info(f'{new_args=}')
         if new_args is None:  # The trash emoji was pressed.
             asyncio.create_task(obj.abandon(delete_msg=True))
             return
@@ -179,7 +177,6 @@ class MyMsg(object):
         side effects are also executed here.
         Returning None will delete the message, and if there's no edits to make, self.__dict__ is returned.
         """
-        log.info(f'{self.__class__=}')
         if emoji == ':wastebasket:':
             return
         return self.__dict__
@@ -226,7 +223,6 @@ class HelpMsg(MyMsg):
                 self.monitored_emojis.add(chr_to_emoji(cmd[0]))
         self.monitored_emojis.add(':open_book:')
         self.edit_embed()
-        log.info(self.log_scope(HelpMsg))
 
     def edit_embed(self):
         log.info(f'{self.__class__=}')
@@ -239,8 +235,8 @@ class HelpMsg(MyMsg):
             text='Contact nyx#6294 for bug reports and feedback.')
 
     def edit_args(self, emoji):
-        log.info(f'{self.__class__=}')
         if emoji == ':open_book:':
+            log.info('requested card search doc')
             # An example of from_dict used as a constructor.
             asyncio.create_task(MyMsg().from_dict({"ctx": self.ctx, "embed": discord.Embed(title='help')
                                                   .add_field(name='\u200b', value=card_search_doc)}).dispatch())
@@ -248,6 +244,7 @@ class HelpMsg(MyMsg):
         if emoji in chr_emojis(self.monitored_emojis):
             new_args = self.__dict__
             new_args["command"] = list(filter(lambda c: str(c)[0] == emoji[-2], bot.commands))[0]
+            log.info(f'{new_args["command"]=}')
             return new_args
         return super().edit_args(emoji)
 
@@ -269,7 +266,6 @@ class MatchesMsg(MyMsg):
         self.embed = discord.Embed(title='Possible matches:')
         for i, match in enumerate(self.matches):
             self.embed.add_field(name=emojize(int_to_emoji(i)), value=LIB.ids[match].name_)
-        log.info(f'{self.__class__=}')
 
     async def wait_for_toggle(self) -> List[int]:
         """
@@ -332,11 +328,10 @@ class JcgMsg(MyMsg):
             crafts_distribution += plot_craft(list(CRAFTS)[i], craft)
         self.embed.add_field(name=f'**Class Distribution**',
                              value=crafts_distribution)
-        log.info(f'{self.__class__=}')
 
     def edit_args(self, emoji):
-        log.info(f'{self.__class__=}')
         if emoji == ':counterclockwise_arrows_button:':
+            log.info('requested JCG update')
             asyncio.create_task(self.wait_for_scraper())
             # One can't wait for a subroutine in a synchronous function, and multiple update calls wouldn't make sense,
             # so the emoji is disabled.

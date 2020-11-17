@@ -34,20 +34,20 @@ with open(f'token_{"testing" if DEV else "main"}.txt', 'r') as txt:
 
 # CARD COMMANDS ########################################################################################################
 
-async def search(ctx, *search_terms, by_attrs, lax) -> List[int]:
+async def search(ctx, *query, by_attrs, lax) -> List[int]:
     """
     An async extension of the Library class methods for card searches. Tries to fallback on other search methods
     upon unsuccessful lookups, and asks for user input with a MatchesMsg menu depending on the amount of matches.
     """
-    search_terms = ' '.join(search_terms)
+    query = ' '.join(query)
     if by_attrs:
-        matches = LIB.search_by_attributes(search_terms)
+        matches = LIB.search_by_attributes(query)
     else:
-        matches = LIB.search_by_name(search_terms, lax=lax)
+        matches = LIB.search_by_name(query, lax=lax)
         if not matches and not lax:
-            matches = LIB.search_by_name(search_terms, lax=True)
+            matches = LIB.search_by_name(query, lax=True)
         if not matches:
-            matches = LIB.search_by_attributes(search_terms)
+            matches = LIB.search_by_attributes(query)
     log.info(f'{len(matches)} match{"es" if len(matches) != 1 else ""}')
     if len(matches) < 2 or len(matches) > MAX_MATCHES:
         return matches
@@ -186,7 +186,10 @@ async def on_ready():
 async def on_reaction_add(reaction, user):
     if reaction.message.author == bot.user and user != bot.user:
         emoji = demojize(reaction.emoji)
-        log.info(f'{user} pressed {emoji} on msg {reaction.message.id}')
+        log_msg = f'[{reaction.message.channel}, {reaction.message.guild}] ' \
+                  f'{user} pressed {emoji} on msg  `{reaction.message.embeds[0].title}` (id={reaction.message.id})'
+        pad = '*'*len(log_msg)
+        log.info(f'\n{pad}\n{log_msg}\n{pad}')
         MyMsg.on_emoji_toggle(reaction.message.id, emoji, user)
 
 
@@ -253,3 +256,4 @@ bot.run(TOKEN)
 # restart (when rr gets called)
 time.sleep(5)
 os.execl('/usr/bin/python', os.path.abspath(__file__), *sys.argv)
+
