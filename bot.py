@@ -23,7 +23,8 @@ log.info(os.path.abspath(__file__))
 log.info(*sys.argv)
 
 MAINTAINER_ID = 186585846906880001
-MAX_MATCHES = 11
+MAX_TOGGLABLE_MATCHES = 11
+MAX_DISPLAYABLE_MATCHES = 35
 SITE = 'https://shadowverse-portal.com'
 
 
@@ -49,7 +50,7 @@ async def search(ctx, *query, by_attrs, lax) -> List[int]:
         if not matches:
             matches = LIB.search_by_attributes(query)
     log.info(f'{len(matches)} match{"es" if len(matches) != 1 else ""}')
-    if len(matches) < 2 or len(matches) > MAX_MATCHES:
+    if len(matches) < 2 or len(matches) > MAX_TOGGLABLE_MATCHES:
         return matches
     else:
         matches_obj = MatchesMsg(ctx, matches)
@@ -75,13 +76,19 @@ async def card_commands_executor(ctx, msg_maker, *args):
     respectively, if said search was successful or not.
     """
     flags = tuple(filter(lambda x: x in ('-l', '--lax', '-a', '--attrs'), args))
-    search_terms = tuple(filter(lambda x: x not in flags, args))
+    query = tuple(filter(lambda x: x not in flags, args))
     by_attrs = '-a' in flags or '--attrs' in flags
     lax = '-l' in flags or '--lax' in flags
-    matches = await search(ctx, *search_terms, by_attrs=by_attrs, lax=lax)
+    matches = await search(ctx, *query, by_attrs=by_attrs, lax=lax)
     if len(matches) == 1:
         card_msg = msg_maker(ctx, matches[0])
         await card_msg.dispatch()
+    elif len(matches) < MAX_DISPLAYABLE_MATCHES:
+        matches = [LIB.ids[id_] for id_ in matches]
+        matches = [f'{c.pp_}pp {c.craft_.strip("craft")} {c.rarity_} {c.type_} **{c.name_}**' for c in matches]
+        embed = discord.Embed(title=f'{(len(matches))} matches found')\
+            .add_field(name='\u200b', value='\n'.join(matches))
+        await MyMsg.from_dict({"ctx": ctx, "embed": embed}).dispatch()
     else:
         await ctx.send(embed=discord.Embed(title=f'{(len(matches))} matches found.'))
 
