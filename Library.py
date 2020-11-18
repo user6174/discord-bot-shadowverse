@@ -76,3 +76,4 @@ if __name__ == "__main__":
     print(l.search_by_name("Abominecion"))  # testing fuzzy
     print(l.search_by_attributes("2/2 gold neutral banish"))
     print(l.search_by_name('figher'))
+    print(l.ids[l.search_by_name('limil')[0]].censored)

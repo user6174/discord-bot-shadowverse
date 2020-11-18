@@ -3,6 +3,7 @@ import json
 import discord
 import asyncio
 import logging
+import logging.handlers
 from typing import Optional, Union, List
 from natsort import natsorted
 from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
@@ -17,7 +18,8 @@ style = logging.Formatter('%(asctime)s [%(funcName)-10s]  %(message)s')
 log = logging.getLogger('discord')
 log.setLevel(logging.INFO)
 
-to_log_file = logging.FileHandler(filename='bot.log', encoding='utf-8', mode='w')
+to_log_file = logging.handlers.RotatingFileHandler(filename='bot.log', maxBytes=1_000_000,
+                                                   backupCount=10, encoding='utf-8', mode='w')
 to_log_file.setFormatter(style)
 log.addHandler(to_log_file)
 

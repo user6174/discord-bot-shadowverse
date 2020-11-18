@@ -1,6 +1,9 @@
 import os
 import json
 
+import aiohttp
+import requests
+
 CURR_DIR = os.path.dirname(os.path.realpath(__file__))
 SITE = "https://svgdb.me"
 EXPANSIONS = {"Token": ("TK", "1970-01-01"),
@@ -24,6 +27,10 @@ EXPANSIONS = {"Token": ("TK", "1970-01-01"),
               "World Uprooted": ("WU", "2020-03-29"),
               "Fortune's Hand": ("FH", "2020-06-29"),
               "Storm over Rivayle": ("SOT", "2020-09-23")}
+
+CENSORED = requests.get(f'{SITE}/api/censored').text
+CENSORED = CENSORED.strip("][").split(', ')
+CENSORED = set(int(id_[1:-1]) for id_ in CENSORED)
 
 
 class Card:
@@ -49,6 +56,9 @@ class Card:
         self.tokens_ = []
         for k, v in card_dict.items():
             self.__setattr__(k, v)
+        self.censored = self.id_ in CENSORED
+        if self.censored:
+            CENSORED.remove(self.id_)
 
     def searchable(self) -> str:
         # Used when searching a card's attribute, and thus expressly lacking the card's name.
@@ -56,11 +66,11 @@ class Card:
                f'{EXPANSIONS[self.expansion_][0]} {self.baseAtk_}/{self.baseDef_} ' \
                f'{"rotation" if self.rotation_ else "unlimited"} {self.baseEffect_} {self.evoEffect_}'.lower()
 
-    def pic(self, frame=False, evo=False) -> str:
+    def pic(self, frame=False, evo=False, censored=False) -> str:
         if frame:
             return f'{SITE}/assets/cards/{"E" if evo else "C"}_{self.id_}.png'
-        else:
-            return f'{SITE}/assets/fullart/{self.id_}{int(evo)}.png'
+        keyword = 'censored' if censored else 'fullart'
+        return f'{SITE}/assets/{keyword}/{self.id_}{int(evo)}.png'
 
 
 # Tests:
@@ -69,8 +79,12 @@ if __name__ == "__main__":
     with open(f'{CURR_DIR}/shadowverse-json/en/all.json', 'r') as f:
         data = json.load(f)
     c = Card(data['112011030'])
+    c2 = Card(data['101334030'])
     for k, v in c.__dict__.items():
         print(f'self.{k} -> {v}')
     print(c.searchable())
     print(c.pic())
     print(c.pic(frame=True, evo=c.type_ == 'Follower'))
+    print(c2.censored)
+    print(c2.pic(censored=True))
+    print(c2.pic())

@@ -127,8 +127,11 @@ class VoiceMsg(CardMsg):
 
 
 class PicMsg(CardMsg):
-    def __init__(self, ctx, id_, evo=False):
+    def __init__(self, ctx, id_, censored=False, evo=False):
         super().__init__(ctx, id_, evo)
+        self.censored = censored
+        if LIB.ids[self.id_].censored:
+            self.monitored_emojis.add(':peach:')
         self.edit_embed()
         log.info(self.log_scope(PicMsg))
 
@@ -136,7 +139,7 @@ class PicMsg(CardMsg):
         log.info(log_cls(PicMsg))
         super().edit_embed()
         card = LIB.ids[self.id_]
-        self.embed.set_image(url=card.pic(evo=self.evo))
+        self.embed.set_image(url=card.pic(evo=self.evo, censored=self.censored))
         alts_ = card.alts_
         if alts_:
             footer_txt = ""
@@ -144,6 +147,14 @@ class PicMsg(CardMsg):
                 chr_ = (chr(ord('a') + i)).upper()
                 footer_txt += f'{chr_}: {card.expansion_}\n'
             self.embed.set_footer(text=f'Other artworks:\n{footer_txt}')
+
+    def edit_args(self, emoji):
+        if emoji == ':peach:':
+            log.info('uncensoring')
+            new_args = self.__dict__
+            new_args["censored"] = not new_args["censored"]
+            return new_args
+        return super().edit_args(emoji)
 
 
 class InfoMsg(CardMsg):
