@@ -83,7 +83,7 @@ async def card_commands_executor(ctx, msg_maker, *args):
     if len(matches) == 1:
         card_msg = msg_maker(ctx, matches[0])
         await card_msg.dispatch()
-    elif len(matches) < MAX_DISPLAYABLE_MATCHES:
+    elif 0 < len(matches) < MAX_DISPLAYABLE_MATCHES:
         matches = [LIB.ids[id_] for id_ in matches]
         matches = [f'{c.pp_}pp {c.craft_.strip("craft")} {c.rarity_} {c.type_} **{c.name_}**' for c in matches]
         embed = discord.Embed(title=f'{(len(matches))} matches found')\
