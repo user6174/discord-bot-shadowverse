@@ -57,7 +57,8 @@ class Library:
 
             if fuzz.partial_ratio(query, name.lower()) > MIN_SIMILARITY:
                 matches_fuzzy.append(self.main_id(id_))
-        return matches_noun if matches_noun else matches_substr if matches_substr else matches_fuzzy
+        ret = matches_noun if matches_noun else matches_substr if matches_substr else matches_fuzzy
+        return list(dict.fromkeys(ret))
 
     def search_by_attributes(self, query: str) -> List[int]:
         ret = []
@@ -77,3 +78,4 @@ if __name__ == "__main__":
     print(l.search_by_attributes("2/2 gold neutral banish"))
     print(l.search_by_name('figher'))
     print(l.ids[l.search_by_name('limil')[0]].censored)
+    print(l.search_by_name('fate\'s hand', lax=True))

@@ -145,7 +145,7 @@ class PicMsg(CardMsg):
             footer_txt = ""
             for i, id_ in enumerate(alts_):
                 chr_ = (chr(ord('a') + i)).upper()
-                footer_txt += f'{chr_}: {card.expansion_}\n'
+                footer_txt += f'{chr_}: {LIB.ids[id_].expansion_}\n'
             self.embed.set_footer(text=f'Other artworks:\n{footer_txt}')
 
     def edit_args(self, emoji):
