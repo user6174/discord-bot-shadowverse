@@ -108,6 +108,7 @@ class VoiceMsg(CardMsg):
         async with aiohttp.client.ClientSession() as s:
             async with s.get(f'{SITE}/api/voices/{self.id_}') as r:
                 voice_lines = json.loads(await r.read())
+                # TODO some alt arts of spells have voices
         for game_action in voice_lines:
             for i, line in enumerate(voice_lines[game_action]):
                 self.embed.add_field(name='\u200b',
@@ -119,10 +120,15 @@ class VoiceMsg(CardMsg):
 
     def edit_args(self, emoji):
         if emoji == ":speech_balloon:":
-            log.info('swapping language')
             new_args = self.__dict__
+            log.info('swapping language')
             new_args["lang"] = 'en' if new_args["lang"] == 'jp' else 'jp'
             return new_args
+        if emoji in chr_emojis(self.monitored_emojis):
+            id_ = LIB.ids[self.id_].alts_[ord(emoji[-2]) - ord('a')]
+            log.info(f'{id_=}')
+            asyncio.create_task(VoiceMsg(self.ctx, id_, self.evo, self.lang).dispatch())
+            return self.__dict__
         return super().edit_args(emoji)
 
 

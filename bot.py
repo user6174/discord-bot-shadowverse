@@ -10,8 +10,7 @@ import aiohttp
 from typing import List, Tuple
 from natsort import natsorted
 from discord.ext import commands
-from emoji import demojize, emojize
-
+from emoji import emojize, demojize
 from Card import EXPANSIONS
 from MyMsg import NO_HELP, LIB, log, bot
 from MyMsg import chr_to_emoji, int_to_emoji, hyperlink, has_help
@@ -24,9 +23,11 @@ log.info(*sys.argv)
 
 MAINTAINER_ID = 186585846906880001
 MAX_TOGGLABLE_MATCHES = 11
-MAX_DISPLAYABLE_MATCHES = 35
+MAX_DISPLAYABLE_MATCHES = 30
 SITE = 'https://shadowverse-portal.com'
 
+# TODO
+#  voice for alt art has the same embed title, confusing
 
 DEV = 1  # 0 on Raspberry.
 with open(f'token_{"testing" if DEV else "main"}.txt', 'r') as txt:
@@ -35,18 +36,20 @@ with open(f'token_{"testing" if DEV else "main"}.txt', 'r') as txt:
 
 # CARD COMMANDS ########################################################################################################
 
-async def search(ctx, *query, by_attrs, lax) -> List[int]:
+async def search(ctx, *query, by_attrs, lax, begins) -> List[int]:
     """
-    An async extension of the Library class methods for card searches. Tries to fallback on other search methods
-    upon unsuccessful lookups, and asks for user input with a MatchesMsg menu depending on the amount of matches.
+    An async extension of the Library class methods for card searches.
+    Asks for user input with a MatchesMsg menu depending on the amount of matches.
     """
     query = ' '.join(query)
     if by_attrs:
         matches = LIB.search_by_attributes(query)
+    elif begins:
+        matches = LIB.search_by_name(query, begins=True)
+    elif lax:
+        matches = LIB.search_by_name(query, lax=True)
     else:
-        matches = LIB.search_by_name(query, lax=lax)
-        if not matches and not lax:
-            matches = LIB.search_by_name(query, lax=True)
+        matches = LIB.search_by_name(query)
         if not matches:
             matches = LIB.search_by_attributes(query)
     log.info(f'{len(matches)} match{"es" if len(matches) != 1 else ""}')
@@ -58,35 +61,34 @@ async def search(ctx, *query, by_attrs, lax) -> List[int]:
         return await matches_obj.wait_for_toggle()
 
 
-async def deck_hash_assets(deck_hash) -> Tuple[str, str, io.BytesIO]:
-    async with aiohttp.ClientSession() as s:
-        async with s.post(f'{SITE}/api/v1/deck_code/publish?format=json&lang=en',
-                          data={'hash': deck_hash}) as r:
-            deck_code = json.loads(await r.text())["data"]["deck_code"]
-        deck_url = f'{SITE}/deck/{deck_hash}?lang=en'
-        async with s.get(f'{SITE}/image/1?lang=en', headers={'referer': deck_url}) as r:
-            deck_img = io.BytesIO(await r.read())
-    return deck_code, deck_url, deck_img
-
-
 async def card_commands_executor(ctx, msg_maker, *args):
     """
     Takes the user message relative to a card command request, handles card search options (if any are passed), issues
-    a card search and dispatches the relative card command or sends info about the card search, depending on,
-    respectively, if said search was successful or not.
+    a card search and dispatches the relative card command or sends info about the card search, depending on if said
+    search was successful or not.
     """
-    flags = tuple(filter(lambda x: x in ('-l', '--lax', '-a', '--attrs'), args))
+
+    """
+    For the user, the possible outcomes of a card search, in respect to the number of matches, are:
+    n < 1 -> no cards found message;
+    n == 1 -> the relative card;
+    1 < n < togglable -> an interactive menu where the user can pick is searched card out of the options;
+    togglable < n < displayable -> a text with a list of possible results;
+    n > displayable -> too many cards found message.
+    """
+    flags = tuple(filter(lambda x: x in ('-l', '--lax', '-a', '--attrs', '-b', '--begins'), args))
     query = tuple(filter(lambda x: x not in flags, args))
     by_attrs = '-a' in flags or '--attrs' in flags
     lax = '-l' in flags or '--lax' in flags
-    matches = await search(ctx, *query, by_attrs=by_attrs, lax=lax)
+    begins = '-b' in flags or '--begins' in flags
+    matches = await search(ctx, *query, by_attrs=by_attrs, lax=lax, begins=begins)
     if len(matches) == 1:
         card_msg = msg_maker(ctx, matches[0])
         await card_msg.dispatch()
     elif 0 < len(matches) < MAX_DISPLAYABLE_MATCHES:
         matches = [LIB.ids[id_] for id_ in matches]
         matches = [f'{c.pp_}pp {c.craft_.strip("craft")} {c.rarity_} {c.type_} **{c.name_}**' for c in matches]
-        embed = discord.Embed(title=f'{(len(matches))} matches found')\
+        embed = discord.Embed(title=f'{(len(matches))} matches found') \
             .add_field(name='\u200b', value='\n'.join(matches))
         await MyMsg.from_dict({"ctx": ctx, "embed": embed}).dispatch()
     else:
@@ -94,7 +96,7 @@ async def card_commands_executor(ctx, msg_maker, *args):
 
 
 # Card commands have no help doc because any additional arguments they may have are better implemented as a reaction
-# toggle, and card search has its own help doc.
+# toggle, and the card search has its own help doc.
 @bot.command(aliases=['i'], help=NO_HELP)
 async def info(ctx, *args):
     await card_commands_executor(ctx, InfoMsg, *args)
@@ -154,6 +156,17 @@ async def jcg(ctx, flag='-r'):
     await JcgMsg(ctx, mode).dispatch()
 
 
+async def deck_hash_assets(deck_hash) -> Tuple[str, str, io.BytesIO]:
+    async with aiohttp.ClientSession() as s:
+        async with s.post(f'{SITE}/api/v1/deck_code/publish?format=json&lang=en',
+                          data={'hash': deck_hash}) as r:
+            deck_code = json.loads(await r.text())["data"]["deck_code"]
+        deck_url = f'{SITE}/deck/{deck_hash}?lang=en'
+        async with s.get(f'{SITE}/image/1?lang=en', headers={'referer': deck_url}) as r:
+            deck_img = io.BytesIO(await r.read())
+    return deck_code, deck_url, deck_img
+
+
 @bot.command(aliases=['c'], help="""**SYNOPSIS**
 `{pfx}c <DECK_CODE>`
 `{pfx}code <DECK_CODE>`
@@ -173,20 +186,33 @@ async def code(ctx, deck_code):
                    file=discord.File(deck_img, 'deck.png'))
 
 
-@bot.command(help=NO_HELP)
-@commands.check(lambda ctx: ctx.message.author.id == MAINTAINER_ID)
-async def rr(ctx):
-    await ctx.message.author.send('rr')
-    await bot.close()
-
-
 # EVENTS ###############################################################################################################
+
+async def clean_history():
+    with open('__history__.txt', 'r') as f:
+        msgs = [row.split() for row in f.readlines()]
+    for ch_id, msg_id in msgs:
+        try:
+            await bot.http.clear_reactions(int(ch_id), int(msg_id))
+        except (discord.errors.NotFound, discord.errors.Forbidden):
+            pass
+    with open('__history__.txt', 'w') as f:
+        f.truncate(0)
+
+
+@bot.event
+async def on_resumed():
+    await clean_history()
+
 
 @bot.event
 async def on_ready():
     log.info(f'{bot.user} is active.')
     log.info(f'available commands: {", ".join(cmd.name for cmd in bot.commands)}')
+    server_list = "\n".join(str(g) for g in bot.guilds)
+    log.info(f'serving {len(bot.guilds)} servers:\n {server_list}')
     await bot.change_presence(activity=discord.Game(f'{bot.command_prefix}h / {bot.command_prefix}help'))
+    await clean_history()
 
 
 @bot.event
@@ -195,7 +221,7 @@ async def on_reaction_add(reaction, user):
         emoji = demojize(reaction.emoji)
         log_msg = f'[{reaction.message.channel}, {reaction.message.guild}] ' \
                   f'{user} pressed {emoji} on msg  `{reaction.message.embeds[0].title}` (id={reaction.message.id})'
-        pad = '*'*len(log_msg)
+        pad = '*' * len(log_msg)
         log.info(f'\n{pad}\n{log_msg}\n{pad}')
         MyMsg.on_emoji_toggle(reaction.message.id, emoji, user)
 
@@ -210,10 +236,9 @@ async def on_command_error(ctx, error):
 
 @bot.event
 async def on_message(message):
-    # Log messages for the bot.
     if message.content.startswith(bot.command_prefix):
         log_msg = f'[{message.channel}, {message.guild}] {message.author}: {message.content}'
-        pad = '*'*len(log_msg)
+        pad = '*' * len(log_msg)
         log.info(f'\n{pad}\n{log_msg}\n{pad}')
     # If the message contains a deck link, its deck code + image are posted.
     if f'{SITE}/deck' in message.content and message.author != bot.user:
@@ -259,8 +284,13 @@ async def help(ctx, command='help'):
 
 # TAIL METHODS #########################################################################################################
 
+@bot.command(help=NO_HELP)
+@commands.check(lambda ctx: ctx.message.author.id == MAINTAINER_ID)
+async def rr(ctx):
+    await ctx.message.author.send('rr')
+    await bot.close()
+
 bot.run(TOKEN)
 # restart (when rr gets called)
 time.sleep(5)
 os.execl('/usr/bin/python', os.path.abspath(__file__), *sys.argv)
-

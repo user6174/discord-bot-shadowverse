@@ -2,7 +2,6 @@ import sys
 import json
 import discord
 import asyncio
-import logging
 import logging.handlers
 from typing import Optional, Union, List
 from natsort import natsorted
@@ -27,7 +26,7 @@ to_stdout = logging.StreamHandler(sys.stdout)
 to_stdout.setFormatter(style)
 log.addHandler(to_stdout)
 
-MAX_WATCHED_MSGS = 10
+MAX_WATCHED_MSGS = 50
 REACTIONS_TIMEOUT = 120  # s
 bot = commands.Bot(command_prefix='!')
 
@@ -129,9 +128,11 @@ class MyMsg(object):
         self.dress()
         MyMsg.__all__[self.msg.id] = self
         log.info(f'sending msg {self.msg.id} {len(MyMsg.__all__)=})')
-        if len(MyMsg.__all__) > MAX_WATCHED_MSGS:
+        while len(MyMsg.__all__) >= MAX_WATCHED_MSGS:
             oldest_msg = min(MyMsg.__all__.keys())  # msg.id is its timestamp
             await MyMsg.__all__[oldest_msg].abandon()
+        with open('__history__.txt', 'a+') as f:
+            f.write(f'{self.ctx.channel.id} {self.msg.id}\n')
 
     def dress(self):
         """
@@ -146,11 +147,14 @@ class MyMsg(object):
         """
         An abandoned message gets dropped from the internal cache and becomes inert to reactions.
         """
-        log.info(f'abandoning msg {self.msg.id} ({delete_msg=}, {len(MyMsg.__all__)=})')
-        await self.msg.clear_reactions()
+        try:  # Can fail in DMs.
+            await self.msg.clear_reactions()
+        except discord.errors.Forbidden:
+            pass
         del MyMsg.__all__[self.msg.id]
         if delete_msg:
             await self.msg.delete()
+        log.info(f'abandoned msg {self.msg.id} ({delete_msg=}, {len(MyMsg.__all__)=})')
 
     @classmethod
     def on_emoji_toggle(cls, msg_id, emoji, user):
@@ -188,24 +192,26 @@ class MyMsg(object):
 
 card_search_doc = """**SYNOPSIS FOR CARD COMMANDS**
 `{pfx}<CARD_COMMAND> <CARD_NAME> <CARD_COMMAND_FLAGS>`
-`{pfx}<CARD_COMMAND> <CARD_NAME> -l <CARD_COMMAND_FLAGS>`
-`{pfx}<CARD_COMMAND> <CARD_ATTRIBUTES> -a <CARD_COMMAND_FLAGS>`
 
 **DESCRIPTION**
 Case insensitive, minor typos are allowed only when looking up a card name. The default search tries to present the cards you're most likely to want while being exhaustive, but should it happen that this results in too narrow or too wide a list of matches, you can make use of **-l** and **-a**. 
 
-**OPTIONS**
+**FLAGS**
 **-l**, **--lax**
 Relaxes the search from returning the card name exactly matching with the search terms to the cards containing the search terms in the name.
 **-a**, **--attrs**
 Matches the search terms to the card's attributes, such as attack, effect and expansion (expansion shorthands are supported).
+**-b**, **--begins**
+Matches the search to the beginning of the card's name.
 
 **EXAMPLES** (using the {pfx}info command)
 `{pfx}pluto -a` -> `Pact with the Nethergod`
 `{pfx}owlcat --lax` -> `Owlcat, Peckish Owlcat`
 `{pfx}abominatioQ` -> `Abomination Awakened`
+`{pfx}ra, -b` -> `Ra, Radiance Incarnate`
 """.format(pfx=bot.command_prefix)
 NO_HELP = '~'
+print(len(card_search_doc))
 
 
 def has_help(cmd) -> bool:

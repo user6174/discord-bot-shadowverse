@@ -19,10 +19,11 @@ class Library:
         # The ID order of homonym cards matches the chronological order of their debut in the game.
         return min([id_] + self.ids[id_].alts_)
 
-    def search_by_name(self, query: str, lax=False) -> List[int]:
+    def search_by_name(self, query: str, lax=False, begins=False) -> List[int]:
         """lax indicates whether to end the search if a match equal to the query is found. It's easy for this not to be
         what the user wants, because very short and simple card names usually have other, more interesting matches."""
         query = query.lower()
+        matches_begins = []
         # Stores card names for which query is a substring found where the card's proper noun tends to be (for example,
         # "grea" matches [...]grea, [...], [...]grea [...], [...]grea'[...] and [...]grea).
         matches_noun = []
@@ -42,6 +43,9 @@ class Library:
             if not lax and query == name.lower():
                 return [self.main_id(id_)]
 
+            if begins and query == name.lower()[:len(query)]:
+                matches_begins.append(self.main_id(id_))
+
             if query + ' ' in name.lower() \
                     or query + ', ' in name.lower() \
                     or query + '\'' in name.lower() \
@@ -57,7 +61,10 @@ class Library:
 
             if fuzz.partial_ratio(query, name.lower()) > MIN_SIMILARITY:
                 matches_fuzzy.append(self.main_id(id_))
-        ret = matches_noun if matches_noun else matches_substr if matches_substr else matches_fuzzy
+        ret = matches_begins if matches_begins else \
+            matches_noun if matches_noun else \
+            matches_substr if matches_substr else \
+            matches_fuzzy
         return list(dict.fromkeys(ret))
 
     def search_by_attributes(self, query: str) -> List[int]:

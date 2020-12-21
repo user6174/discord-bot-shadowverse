@@ -64,7 +64,7 @@ class Card:
         # Used when searching a card's attribute, and thus expressly lacking the card's name.
         return f'{self.pp_}pp {self.rarity_} {self.craft_} {self.trait_} {self.type_} {self.expansion_} ' \
                f'{EXPANSIONS[self.expansion_][0]} {self.baseAtk_}/{self.baseDef_} ' \
-               f'{"rotation" if self.rotation_ else "unlimited"} {self.baseEffect_} {self.evoEffect_}'.lower()
+               f'{"rotation" if self.rotation_ else "unlimited"} {self.baseEffect_} {self.evoEffect_} {self.name_}'.lower()
 
     def pic(self, frame=False, evo=False, censored=False) -> str:
         if frame:
