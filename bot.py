@@ -58,7 +58,10 @@ async def search(ctx, *query, by_attrs, lax, begins) -> List[int]:
     else:
         matches_obj = MatchesMsg(ctx, matches)
         await matches_obj.dispatch()
-        return await matches_obj.wait_for_toggle()
+        match = await matches_obj.wait_for_toggle()
+        if not match:
+            await matches_obj.abandon(delete_msg=True)
+        return match
 
 
 async def card_commands_executor(ctx, msg_maker, *args):
@@ -196,6 +199,10 @@ async def clean_history():
             await bot.http.clear_reactions(int(ch_id), int(msg_id))
         except (discord.errors.NotFound, discord.errors.Forbidden):
             pass
+        try:
+            del MyMsg.__all__[int(msg_id)]
+        except KeyError:
+            pass
     with open('__history__.txt', 'w') as f:
         f.truncate(0)
 
@@ -256,7 +263,6 @@ async def on_message(message):
 
 fmt_commands_list = ''
 command_names = natsorted(str(cmd) for cmd in bot.commands)
-command_names.remove('rr')
 for cmd in command_names:
     emoji = int_to_emoji('*') if not has_help(cmd) else chr_to_emoji(cmd[0])
     emoji = emojize(emoji)
@@ -289,6 +295,7 @@ async def help(ctx, command='help'):
 async def rr(ctx):
     await ctx.message.author.send('rr')
     await bot.close()
+
 
 bot.run(TOKEN)
 # restart (when rr gets called)

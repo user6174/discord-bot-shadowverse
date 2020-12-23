@@ -17,8 +17,8 @@ style = logging.Formatter('%(asctime)s [%(funcName)-10s]  %(message)s')
 log = logging.getLogger('discord')
 log.setLevel(logging.INFO)
 
-to_log_file = logging.handlers.RotatingFileHandler(filename='bot.log', maxBytes=1_000_000,
-                                                   backupCount=10, encoding='utf-8', mode='w')
+to_log_file = logging.handlers.TimedRotatingFileHandler(filename='bot.log', when='midnight',
+                                                        backupCount=7, encoding='utf-8')
 to_log_file.setFormatter(style)
 log.addHandler(to_log_file)
 
@@ -27,7 +27,7 @@ to_stdout.setFormatter(style)
 log.addHandler(to_stdout)
 
 MAX_WATCHED_MSGS = 50
-REACTIONS_TIMEOUT = 120  # s
+REACTIONS_TIMEOUT = 60  # s
 bot = commands.Bot(command_prefix='!')
 
 # markup: colorizes text in discord formatting (___ is the placeholder for the text)
@@ -287,7 +287,7 @@ class MatchesMsg(MyMsg):
                                                                             r.message.id == self.msg.id,
                                          timeout=REACTIONS_TIMEOUT)
             return [self.matches[int(demojize(rctn.emoji)[-2])]]
-        except TimeoutError:
+        except asyncio.exceptions.TimeoutError:
             log.info(f'timeout {self.msg.id}')
             return []
 
