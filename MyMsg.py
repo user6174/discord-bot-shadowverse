@@ -27,8 +27,8 @@ to_stdout.setFormatter(style)
 log.addHandler(to_stdout)
 
 MAX_WATCHED_MSGS = 50
-REACTIONS_TIMEOUT = 60  # s
-bot = commands.Bot(command_prefix='!')
+REACTIONS_TIMEOUT = 300  # seconds
+bot = commands.Bot(command_prefix='<')
 
 # markup: colorizes text in discord formatting (___ is the placeholder for the text)
 # hex: color in hex

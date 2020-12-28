@@ -1,5 +1,7 @@
 import asyncio
 import json
+import re
+
 import aiohttp
 import discord
 from emoji import emojize
@@ -64,24 +66,40 @@ def fmt_action(action, line):
               "other": "Other",
               "evolves": "On Evolve",
               "attacks": "On Attack"}[action]
-    special = ''
-    if 'enh' in line:
-        special = ' (Enhance)'
-    elif 'ub' in line:
-        special = ' (Union Burst)'
+    no_special = re.compile(r'vo_(\d+)_(\d)\.mp3')
+    if re.findall(no_special, line):
+        return action
+    special_self = re.findall(
+        re.compile(r'vo_(\d+)_(\d)_(\w+)(_?)(\d?)\.mp3'), line)
+    if special_self:
+        self_effects = {'enh': 'Enhance',
+                        'ub': 'Union Burst',
+                        'ubp': 'Union Burst Preamble',
+                        'sb': 'Swordbound Art',
+                        'ssb': 'Super Swordbound Art',
+                        'sbp': 'Swordbound Art Preamble',
+                        'ssbp': 'Super Swordbound Art Preamble'}
+        code = special_self[0][2]
+        try:
+            return f'{action} ({self_effects[code]})'
+        except KeyError:
+            log.info(f'UNCAUGHT SPECIAL VOICE LINE {line}')
+            return action
+    special_other = re.findall(
+        re.compile(r'vo_(\d+)_(\d)_(\d+)\.mp3'), line)
+    if special_other:
+        _, code, other_id = special_other[0]
+        return action + (' (enemy ' if code == '7' else ' (ally ') + LIB.ids[int(other_id)].name_ + ')'
     else:
-        against_id = int(line.split('_')[-1].split('.')[0])
-        if against_id in LIB.ids:
-            special = f' (against {LIB.ids[against_id].name_})'
-        else:
-            log.info(f'WARNING: potentially unmatched special string {action} {line}')
-    return action + special
+        log.info(f'UNCAUGHT SPECIAL VOICE LINE {line}')
+        return action
 
 
 class VoiceMsg(CardMsg):
     def __init__(self, ctx, id_, evo=False, lang='jp'):
         super().__init__(ctx, id_, evo)
-        self.monitored_emojis.remove(':dna:')
+        if ':dna:' in self.monitored_emojis:
+            self.monitored_emojis.remove(':dna:')
         self.monitored_emojis.add(":speech_balloon:")
         self.lang = lang
         # The embed isn't built with edit_embed here, but when dispatching, because the bot needs to get the voice lines
@@ -107,8 +125,8 @@ class VoiceMsg(CardMsg):
         self.embed.title = emojize(':Japan:' if self.lang == 'jp' else ':United_Kingdom:') + f' {self.embed.title}'
         async with aiohttp.client.ClientSession() as s:
             async with s.get(f'{SITE}/api/voices/{self.id_}') as r:
-                voice_lines = json.loads(await r.read())
-                # TODO some alt arts of spells have voices
+                response = await r.read()
+                voice_lines = json.loads(response)
         for game_action in voice_lines:
             for i, line in enumerate(voice_lines[game_action]):
                 self.embed.add_field(name='\u200b',

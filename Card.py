@@ -26,7 +26,8 @@ EXPANSIONS = {"Token": ("TK", "1970-01-01"),
               "Ultimate Colosseum": ("UC", "2019-12-27"),
               "World Uprooted": ("WU", "2020-03-29"),
               "Fortune's Hand": ("FH", "2020-06-29"),
-              "Storm over Rivayle": ("SOT", "2020-09-23")}
+              "Storm over Rivayle": ("SOT", "2020-09-23"),
+              "Eternal Awakening": ("EA", "2020-12-28")}
 
 """ this is hardcoded below in case the site isn't up.
 CENSORED = requests.get(f'{SITE}/api/censored').text
@@ -88,7 +89,7 @@ class Card:
     def searchable(self) -> str:
         # Used when searching a card's attribute, and thus expressly lacking the card's name.
         return f'{self.pp_}pp {self.rarity_} {self.craft_} {self.trait_} {self.type_} {self.expansion_} ' \
-               f'{EXPANSIONS[self.expansion_][0]} {self.baseAtk_}/{self.baseDef_} ' \
+               f'{EXPANSIONS[self.expansion_][0]} {self.expansion_} {self.baseAtk_}/{self.baseDef_} ' \
                f'{"rotation" if self.rotation_ else "unlimited"} {self.baseEffect_} {self.evoEffect_} {self.name_}'.lower()
 
     def pic(self, frame=False, evo=False, censored=False) -> str:

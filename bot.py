@@ -26,9 +26,6 @@ MAX_TOGGLABLE_MATCHES = 11
 MAX_DISPLAYABLE_MATCHES = 30
 SITE = 'https://shadowverse-portal.com'
 
-# TODO
-#  voice for alt art has the same embed title, confusing
-
 DEV = 1  # 0 on Raspberry.
 with open(f'token_{"testing" if DEV else "main"}.txt', 'r') as txt:
     TOKEN = txt.readline()
