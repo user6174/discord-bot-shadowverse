@@ -86,11 +86,12 @@ class Card:
         if self.censored:
             CENSORED.remove(self.id_)
 
-    def searchable(self) -> str:
+    def searchable(self, include_name=True) -> str:
         # Used when searching a card's attribute, and thus expressly lacking the card's name.
-        return f'{self.pp_}pp {self.rarity_} {self.craft_} {self.trait_} {self.type_} {self.expansion_} ' \
-               f'{EXPANSIONS[self.expansion_][0]} {self.expansion_} {self.baseAtk_}/{self.baseDef_} ' \
-               f'{"rotation" if self.rotation_ else "unlimited"} {self.baseEffect_} {self.evoEffect_} {self.name_}'.lower()
+        return (f'{self.name_} ' if include_name else '').lower() + \
+               f'{self.pp_}pp {self.rarity_} {self.craft_} {self.trait_} {self.type_} {self.expansion_} ' \
+               f'{EXPANSIONS[self.expansion_][0]} {self.baseAtk_}/{self.baseDef_} ' \
+               f'{"rotation" if self.rotation_ else "unlimited"} {self.baseEffect_} {self.evoEffect_}'.lower().replace('-', '')
 
     def pic(self, frame=False, evo=False, censored=False) -> str:
         if frame:
@@ -114,3 +115,4 @@ if __name__ == "__main__":
     print(c2.censored)
     print(c2.pic(censored=True))
     print(c2.pic())
+    print(Card(data['119041010']).searchable())

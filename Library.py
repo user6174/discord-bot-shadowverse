@@ -61,10 +61,10 @@ class Library:
             matches_substr
         return list(dict.fromkeys(ret))
 
-    def search_by_attributes(self, query: str) -> List[int]:
+    def search_by_attributes(self, query: str, include_name=True) -> List[int]:
         ret = []
         for id_, card in self.ids.items():
-            if all(attr in card.searchable() for attr in query.lower().split(' ')):
+            if all(attr in card.searchable(include_name) for attr in query.lower().split(' ')):
                 ret.append(id_)
         return ret
 
@@ -78,3 +78,4 @@ if __name__ == "__main__":
     print(l.search_by_attributes("2/2 gold neutral banish"))
     print(l.ids[l.search_by_name('limil')[0]].censored)
     print(l.search_by_name('fate\'s hand', lax=True))
+    print(l.search_by_attributes('bahamut accelerate', include_name=True))

@@ -40,7 +40,7 @@ async def search(ctx, *query, by_attrs, lax, begins) -> List[int]:
     """
     query = ' '.join(query)
     if by_attrs:
-        matches = LIB.search_by_attributes(query)
+        matches = LIB.search_by_attributes(query, include_name=False)
     elif begins:
         matches = LIB.search_by_name(query, begins=True)
     elif lax:
@@ -48,7 +48,7 @@ async def search(ctx, *query, by_attrs, lax, begins) -> List[int]:
     else:
         matches = LIB.search_by_name(query)
         if not matches:
-            matches = LIB.search_by_attributes(query)
+            matches = LIB.search_by_attributes(query, include_name=True)
     log.info(f'{len(matches)} match{"es" if len(matches) != 1 else ""}')
     if len(matches) < 2 or len(matches) > MAX_TOGGLABLE_MATCHES:
         return matches

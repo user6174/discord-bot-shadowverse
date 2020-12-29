@@ -194,20 +194,20 @@ card_search_doc = """**SYNOPSIS FOR CARD COMMANDS**
 `{pfx}<CARD_COMMAND> <CARD_NAME> <CARD_COMMAND_FLAGS>`
 
 **DESCRIPTION**
-Case insensitive, minor typos are allowed only when looking up a card name. The default search tries to present the cards you're most likely to want while being exhaustive, but should it happen that this results in too narrow or too wide a list of matches, you can make use of **-l** and **-a**. 
+Case insensitive. The default search tries to match the name first, and fallsback to match name + card attributes. 
+If this behavior is obscuring some desired matches, you can make use of the flags below. 
 
 **FLAGS**
 **-l**, **--lax**
-Relaxes the search from returning the card name exactly matching with the search terms to the cards containing the search terms in the name.
+Relaxes the search from returning the card name exactly matching the search terms to the cards containing the search terms in their name.
 **-a**, **--attrs**
-Matches the search terms to the card's attributes, such as attack, effect and expansion (expansion shorthands are supported).
+Matches the search terms to the card's attributes other than the name, such as attack, effect and expansion (expansion shorthands are supported). 
 **-b**, **--begins**
 Matches the search to the beginning of the card's name.
 
 **EXAMPLES** (using the {pfx}info command)
 `{pfx}pluto -a` -> `Pact with the Nethergod`
 `{pfx}owlcat --lax` -> `Owlcat, Peckish Owlcat`
-`{pfx}abominatioQ` -> `Abomination Awakened`
 `{pfx}ra, -b` -> `Ra, Radiance Incarnate`
 """.format(pfx=bot.command_prefix)
 NO_HELP = '~'
