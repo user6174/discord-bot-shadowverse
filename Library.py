@@ -1,7 +1,6 @@
 import json
 from Card import Card, CURR_DIR
 from typing import List
-from fuzzywuzzy import fuzz
 
 MIN_SIMILARITY = 80
 
@@ -29,8 +28,6 @@ class Library:
         matches_noun = []
         # For matches stored here the query is a generic slice of the card name ("grea" matches [...]grea[...]).
         matches_substr = []
-        # Finally if the query and the card name are similar enough the match is stored here (i.e. allowing typos).
-        matches_fuzzy = []
         """
         These matches are presented in their priority order: matches_fuzzy is only returned if, and built while, the
         other two matches are empty. One could argue that it's better to build and return all 3 while caching the
@@ -59,12 +56,9 @@ class Library:
             if matches_substr:
                 continue
 
-            if fuzz.partial_ratio(query, name.lower()) > MIN_SIMILARITY:
-                matches_fuzzy.append(self.main_id(id_))
         ret = matches_begins if matches_begins else \
             matches_noun if matches_noun else \
-            matches_substr if matches_substr else \
-            matches_fuzzy
+            matches_substr
         return list(dict.fromkeys(ret))
 
     def search_by_attributes(self, query: str) -> List[int]:
@@ -81,8 +75,6 @@ if __name__ == "__main__":
     print(l.search_by_name("fighter", lax=True))
     print(l.search_by_name("grea"))  # testing whole word
     print(l.search_by_name('infer'))  # testing substring overlap
-    print(l.search_by_name("Abominecion"))  # testing fuzzy
     print(l.search_by_attributes("2/2 gold neutral banish"))
-    print(l.search_by_name('figher'))
     print(l.ids[l.search_by_name('limil')[0]].censored)
     print(l.search_by_name('fate\'s hand', lax=True))

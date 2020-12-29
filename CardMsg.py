@@ -70,7 +70,7 @@ def fmt_action(action, line):
     if re.findall(no_special, line):
         return action
     special_self = re.findall(
-        re.compile(r'vo_(\d+)_(\d)_(\w+)(_?)(\d?)\.mp3'), line)
+        re.compile(r'vo_(\d+)_(\d)_([a-z]+)(_?)(\w*)\.mp3'), line)
     if special_self:
         self_effects = {'enh': 'Enhance',
                         'ub': 'Union Burst',

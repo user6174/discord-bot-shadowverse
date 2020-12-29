@@ -56,8 +56,6 @@ async def search(ctx, *query, by_attrs, lax, begins) -> List[int]:
         matches_obj = MatchesMsg(ctx, matches)
         await matches_obj.dispatch()
         match = await matches_obj.wait_for_toggle()
-        if not match:
-            await matches_obj.abandon(delete_msg=True)
         return match
 
 
@@ -87,7 +85,7 @@ async def card_commands_executor(ctx, msg_maker, *args):
         await card_msg.dispatch()
     elif 0 < len(matches) < MAX_DISPLAYABLE_MATCHES:
         matches = [LIB.ids[id_] for id_ in matches]
-        matches = [f'{c.pp_}pp {c.craft_.strip("craft")} {c.rarity_} {c.type_} **{c.name_}**' for c in matches]
+        matches = [f'{c.pp_}pp {c.craft_[:(-5 if c.craft_ != "Neutral" else len(c.craft_))]} {c.rarity_} {c.type_} **{c.name_}**' for c in matches]
         embed = discord.Embed(title=f'{(len(matches))} matches found') \
             .add_field(name='\u200b', value='\n'.join(matches))
         await MyMsg.from_dict({"ctx": ctx, "embed": embed}).dispatch()

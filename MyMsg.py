@@ -27,7 +27,7 @@ to_stdout.setFormatter(style)
 log.addHandler(to_stdout)
 
 MAX_WATCHED_MSGS = 50
-REACTIONS_TIMEOUT = 300  # seconds
+REACTIONS_TIMEOUT = 60  # seconds
 bot = commands.Bot(command_prefix='<')
 
 # markup: colorizes text in discord formatting (___ is the placeholder for the text)
@@ -289,7 +289,8 @@ class MatchesMsg(MyMsg):
             return [self.matches[int(demojize(rctn.emoji)[-2])]]
         except asyncio.exceptions.TimeoutError:
             log.info(f'timeout {self.msg.id}')
-            return []
+            await self.abandon()
+            raise Exception  # a non-error return triggers "no matches found".
 
     def edit_args(self, emoji):
         return  # We want MatchesMsg to be deleted on any reaction press.
