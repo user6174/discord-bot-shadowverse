@@ -26,8 +26,9 @@ EXPANSIONS = {"Token": ("TK", "1970-01-01"),
               "Ultimate Colosseum": ("UC", "2019-12-27"),
               "World Uprooted": ("WU", "2020-03-29"),
               "Fortune's Hand": ("FH", "2020-06-29"),
-              "Storm over Rivayle": ("SOT", "2020-09-23"),
-              "Eternal Awakening": ("EA", "2020-12-28")}
+              "Storm Over Rivayle": ("SOT", "2020-09-23"),
+              "Eternal Awakening": ("EA", "2020-12-28"),
+              "Darkness Over Vellsar": ("SOV", "2021-03-29")}
 
 """ this is hardcoded below in case the site isn't up.
 CENSORED = requests.get(f'{SITE}/api/censored').text
