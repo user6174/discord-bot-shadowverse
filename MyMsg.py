@@ -7,7 +7,6 @@ from typing import Optional, Union, List
 from natsort import natsorted
 from discord.ext import commands  # https://discordpy.readthedocs.io/en/latest/ext/commands/commands.html
 from emoji import emojize, demojize
-from Jcg_utils import update_jcgs
 from Library import Library
 
 LIB = Library()
@@ -28,7 +27,7 @@ log.addHandler(to_stdout)
 
 MAX_WATCHED_MSGS = 50
 REACTIONS_TIMEOUT = 60  # seconds
-bot = commands.Bot(command_prefix='<')
+bot = commands.Bot(command_prefix='!')
 
 # markup: colorizes text in discord formatting (___ is the placeholder for the text)
 # hex: color in hex

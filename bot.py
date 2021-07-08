@@ -14,7 +14,7 @@ from emoji import emojize, demojize
 from Card import EXPANSIONS
 from MyMsg import NO_HELP, LIB, log, bot
 from MyMsg import chr_to_emoji, int_to_emoji, hyperlink, has_help
-from MyMsg import MyMsg, MatchesMsg, JcgMsg, HelpMsg
+from MyMsg import MyMsg, MatchesMsg, HelpMsg
 from CardMsg import PicMsg, InfoMsg, VoiceMsg
 
 log.info(sys.executable)
@@ -26,7 +26,7 @@ MAX_TOGGLABLE_MATCHES = 11
 MAX_DISPLAYABLE_MATCHES = 30
 SITE = 'https://shadowverse-portal.com'
 
-DEV = 1  # 0 on Raspberry.
+DEV = 0  # 0 on Raspberry.
 with open(f'token_{"testing" if DEV else "main"}.txt', 'r') as txt:
     TOKEN = txt.readline()
 
@@ -85,7 +85,9 @@ async def card_commands_executor(ctx, msg_maker, *args):
         await card_msg.dispatch()
     elif 0 < len(matches) < MAX_DISPLAYABLE_MATCHES:
         matches = [LIB.ids[id_] for id_ in matches]
-        matches = [f'{c.pp_}pp {c.craft_[:(-5 if c.craft_ != "Neutral" else len(c.craft_))]} {c.rarity_} {c.type_} **{c.name_}**' for c in matches]
+        matches = [
+            f'{c.pp_}pp {c.craft_[:(-5 if c.craft_ != "Neutral" else len(c.craft_))]} {c.rarity_} {c.type_} **{c.name_}**'
+            for c in matches]
         embed = discord.Embed(title=f'{(len(matches))} matches found') \
             .add_field(name='\u200b', value='\n'.join(matches))
         await MyMsg.from_dict({"ctx": ctx, "embed": embed}).dispatch()
@@ -137,22 +139,23 @@ async def sets(ctx, flag='-u'):
     await MyMsg().from_dict({"ctx": ctx, "embed": embed}).dispatch()
 
 
-@bot.command(aliases=['j', 'tour', 'tourney'], help="""**SYNOPSIS**
-`{pfx}j`
-`{pfx}jcg`
-`{pfx}jcg -u`
+# the jcg site changed layout.
 
-**DESCRIPTION**
-Shows the latest Rotation {jcg}.
-
-**OPTIONS**
-**-u**, **--unlimited**
-Shows the latest Unlimited JCG instead."""
-             .format(pfx=bot.command_prefix, jcg=hyperlink('JCG', 'https://sv.j-cg.com/')))
-async def jcg(ctx, flag='-r'):
-    mode = 'unlimited' if flag in ('-u', '--unlimited') else 'rotation'
-    await JcgMsg(ctx, mode).dispatch()
-
+# @bot.command(aliases=['j', 'tour', 'tourney'], help="""**SYNOPSIS**
+# `{pfx}j`
+# `{pfx}jcg`
+# `{pfx}jcg -u`
+#
+# **DESCRIPTION**
+# Shows the latest Rotation {jcg}.
+#
+# **OPTIONS**
+# **-u**, **--unlimited**
+# Shows the latest Unlimited JCG instead."""
+#             .format(pfx=bot.command_prefix, jcg=hyperlink('JCG', 'https://sv.j-cg.com/')))
+# async def jcg(ctx, flag='-r'):
+#    mode = 'unlimited' if flag in ('-u', '--unlimited') else 'rotation'
+#    await JcgMsg(ctx, mode).dispatch()
 
 async def deck_hash_assets(deck_hash) -> Tuple[str, str, io.BytesIO]:
     async with aiohttp.ClientSession() as s:

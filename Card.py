@@ -28,7 +28,8 @@ EXPANSIONS = {"Token": ("TK", "1970-01-01"),
               "Fortune's Hand": ("FH", "2020-06-29"),
               "Storm Over Rivayle": ("SOT", "2020-09-23"),
               "Eternal Awakening": ("EA", "2020-12-28"),
-              "Darkness Over Vellsar": ("SOV", "2021-03-29")}
+              "Darkness Over Vellsar": ("SOV", "2021-03-29"),
+              "Renascent Chronicles": ("RC", "2021-06-29")}
 
 """ this is hardcoded below in case the site isn't up.
 CENSORED = requests.get(f'{SITE}/api/censored').text
@@ -96,7 +97,7 @@ class Card:
 
     def pic(self, frame=False, evo=False, censored=False) -> str:
         if frame:
-            return f'{SITE}/assets/cards/{"E" if evo else "C"}_{self.id_}.png'
+            return f'{SITE}/assets/cards/en/{"E" if evo else "C"}_{self.id_}.png'
         keyword = 'censored' if censored else 'fullart'
         return f'{SITE}/assets/{keyword}/{self.id_}{int(evo)}.png'
 

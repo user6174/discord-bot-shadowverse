@@ -1,9 +1,11 @@
+import asyncio
 import json
 import aiohttp
 import async_timeout
 import pyshorteners
 import requests
 from bs4 import BeautifulSoup
+from selenium import webdriver
 
 
 async def soup_from_url(session, url, timeout=10):
@@ -29,13 +31,16 @@ def build_player(shortener, match_soup, player_idx):
     return player_data
 
 
-async def scrape_tournament(session, url, format_) -> dict or None:
+async def scrape_tournament(url, format_) -> dict or None:
     shortener = pyshorteners.Shortener()
-    soup = await soup_from_url(session, url)
-    name = f'{" ".join(word.text for word in soup.find_all("span", class_="nobr"))}'
-    name = name.split('月')[0] + '/' + name.split('月')[1].split('日')[0] + '/2020'
-    code = url.split('/')[-1]
-    print(name)
+    headless = webdriver.ChromeOptions()
+    headless.add_argument('--headless')
+    driver = webdriver.Chrome(options=headless)
+    driver.get(url)
+    name = driver.find_element_by_xpath('//div[@class="competition-title"]').text
+    name = ' '.join(name.split()[:6])
+    code = url.split('/')[4]
+    print(f'name: {name}')
     try:
         with open(f'{format_}.json', 'r') as f:
             try:
@@ -45,11 +50,15 @@ async def scrape_tournament(session, url, format_) -> dict or None:
                     return None
                 else:
                     print(f'{name} is newer than {tmp["name"]}, scraping')
-            except json.decoder.JSONDecodeError:  # corrupt json, re-scrape
+            except json.decoder.JSONDecodeError:
+                print('corrupt json, scraping')
                 pass
     except FileNotFoundError:  # no json, scrape
+        print('no json found, scraping')
         pass
-    soup = soup.find("div", class_="tourview-wrap")
+    for roundd in driver.find_elements_by_xpath('//div[@_ngcontent-c3 class="roundTitle"]'):
+        print(roundd.text)
+    return
     rounds = len(soup.find_all("ul", class_="matches")) + 1
     ret = {pos: [] for pos in [2 ** round_ for round_ in range(rounds)]}
     ret["name"] = name
@@ -84,18 +93,16 @@ async def scrape_tournament(session, url, format_) -> dict or None:
 
 
 async def scrape_jcg(format_):
-    url = f'https://sv.j-cg.com/compe/{format_}?perpage=20&start=0'
+    url = f'https://sv.j-cg.com/past-schedule/{format_}'
     print(url)
     async with aiohttp.ClientSession() as session:
         soup = await soup_from_url(session, url)
-        for tourney in soup.find_all('tr', class_="competition"):
-            # txt==end, qualifying not in
-            if tourney.find('td', class_="status").text == '終了' and \
-                    'グループ予選' not in ' '.join(t.text for t in tourney.find_all('a', class_="link-nodeco link-black")):
-                url = f'https://sv.j-cg.com/compe/view/tour/' \
-                      f'{tourney.find("a", class_="link-nodeco link-black")["href"].split("/")[-1]}'
+        for tourney in soup.find_all('a', class_="schedule-link"):
+            # final in text
+            if '決勝' in tourney.find('div', class_="schedule-title").text:
+                url = tourney['href'] + '/bracket'
                 print(f'newest tourney: {url}')
-                return await scrape_tournament(session, url, format_)
+                return await scrape_tournament(url, format_)
 
 
 async def update_jcgs():
@@ -107,3 +114,7 @@ async def update_jcgs():
     if last is not None:
         with open('unlimited.json', 'w+') as f:
             json.dump(last, f)
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(update_jcgs())
